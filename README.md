@@ -110,6 +110,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 |---|---|
 | [`MANUAL.md`](MANUAL.md) | The full owner's manual — 22 sections, also readable in-program with `F1` |
 | [`CHANGELOG.md`](CHANGELOG.md) | Version history |
+| [`DECISIONS.md`](DECISIONS.md) | Ideas considered and deliberately **not** built, and why |
 | [`LICENSE.txt`](LICENSE.txt) | Licence and terms of use |
 
 ---
