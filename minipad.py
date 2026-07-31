@@ -2957,7 +2957,7 @@ class MiniPad(object):
                     self.insert(line + "\n", ("code_block",))
                 self.insert("\n")
             elif kind == "rule":
-                self.insert("â”€" * 60 + "\n\n", ("rule",))
+                self.insert("─" * 60 + "\n\n", ("rule",))
             elif kind == "quote":
                 self.render_quote(block["blocks"], depth)
             elif kind == "list":
@@ -2973,7 +2973,7 @@ class MiniPad(object):
     def render_quote(self, blocks, depth):
         for block in blocks:
             if block["type"] == "paragraph":
-                self.insert("â–Ž ", ("quote_mark",))
+                self.insert("▎ ", ("quote_mark",))
                 self.render_spans(block["spans"], extra=("quote",))
                 self.insert("\n\n")
             else:
@@ -3014,10 +3014,10 @@ class MiniPad(object):
                     parts.append(cell.center(width))
                 else:
                     parts.append(cell.ljust(width))
-            return "  " + " â”‚ ".join(parts)
+            return "  " + " │ ".join(parts)
 
         self.insert(format_row(header) + "\n", ("table",))
-        self.insert("  " + "â”€â”¼â”€".join("â”€" * width for width in widths) + "\n",
+        self.insert("  " + "─┼─".join("─" * width for width in widths) + "\n",
                     ("table",))
         for row in rows:
             self.insert(format_row(row) + "\n", ("table",))
