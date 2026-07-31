@@ -1,0 +1,17 @@
+# Build scratch
+obj/
+bin/
+*.pdb
+*.suo
+*.user
+
+# Python
+__pycache__/
+*.pyc
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Never commit credentials
+.mcp.json

@@ -1,0 +1,66 @@
+MiniPad
+License and terms of use
+Version 1.08
+
+Copyright (c) 2026 Tim Broussard. All rights reserved.
+Built in conversation with Legion (Claude, Anthropic), an AI assistant, working
+under the direction of Tim Broussard.
+
+------------------------------------------------------------------------------
+YOU MAY
+------------------------------------------------------------------------------
+
+  * Use this program for anything you like, private or commercial, at no cost.
+  * Install and run it on as many machines as you own or administer.
+  * Keep backup copies for your own use.
+  * Pass the unmodified program files to someone else, free of charge, provided
+    this license file goes with them.
+  * Do whatever you want with the documents you create using it. Your files are
+    yours; this license says nothing about them.
+
+------------------------------------------------------------------------------
+YOU MAY NOT
+------------------------------------------------------------------------------
+
+  * Copy, reuse, translate or adapt the source code, in whole or in part, in
+    any other project, whether or not that project is published.
+  * Publish the source code, or excerpts of it, anywhere.
+  * Distribute modified versions of the program, or programs derived from it.
+  * Sell, rent, sublicense or bundle the program as part of a paid product.
+  * Remove or alter the authorship credits in the program or its documentation.
+
+Reading the source to understand how the program works is fine. Copying it into
+something else is not.
+
+------------------------------------------------------------------------------
+NO WARRANTY
+------------------------------------------------------------------------------
+
+This program is provided "as is", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose, and non-infringement.
+
+In no event shall the author be liable for any claim, damages, data loss, or
+other liability, whether in an action of contract, tort or otherwise, arising
+from or in connection with this program or its use.
+
+Keep your own backups. This is a text editor, and it writes to your files.
+
+------------------------------------------------------------------------------
+NOTES
+------------------------------------------------------------------------------
+
+This program uses no third-party code and no external libraries. It calls only
+the components already present in the operating system: the .NET Framework and
+the Windows HTML engine on Windows, and the Python standard library with Tk on
+Linux. No part of it is under anyone else's copyright, so there are no further
+licenses to comply with and nothing to attribute.
+
+The full owner's manual is in MANUAL.md, and inside the program under
+About > Help, where it is searchable.
+
+------------------------------------------------------------------------------
+
+This is a plain-language license, written to be read rather than to survive a
+courtroom. It is not legal advice. If MiniPad is ever distributed more widely
+than a few machines, have a solicitor look it over first.
