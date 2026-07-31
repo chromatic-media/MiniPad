@@ -4,9 +4,14 @@
 
 **Please do not open a public issue for a security problem.**
 
-Use GitHub's private vulnerability reporting instead: go to the **Security** tab of this
-repository and click **Report a vulnerability**. That opens a private conversation visible
-only to you and the maintainer.
+**While this repository is private**, everyone who can see it has been invited personally,
+so report it straight to the maintainer — a direct message or email is fine. There is no
+need for a formal channel among people who already know each other.
+
+**If this repository is ever made public**, use GitHub's private vulnerability reporting
+instead: the **Security** tab, then **Report a vulnerability**. That opens a conversation
+visible only to you and the maintainer, so a flaw is not published before it is fixed.
+(That feature only exists on public repositories, which is why it is not the route today.)
 
 Please include:
 
