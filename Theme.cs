@@ -239,6 +239,12 @@ public static class Theme
 
         return "body{font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:" + size + "px;"
              + "line-height:1.6;color:" + text + ";background:" + back + ";margin:0;padding:24px 28px;}"
+             // The first block starts flush with the padding, so line 1 of the
+             // rendering sits level with line 1 of the source. Without this a
+             // heading adds its own 24px margin on top of the body padding and
+             // the two panes start out of step. MainForm.PreviewTopPadding is
+             // the editor's matching inset - change one, change the other.
+             + "body>*:first-child{margin-top:0;}"
              + "h1,h2,h3,h4,h5,h6{margin:24px 0 12px;line-height:1.25;font-weight:600;}"
              + "h1{font-size:1.9em;border-bottom:1px solid " + border + ";padding-bottom:8px;}"
              + "h2{font-size:1.45em;border-bottom:1px solid " + border + ";padding-bottom:6px;}"

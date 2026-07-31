@@ -423,7 +423,21 @@ shows whichever tab is in front.
 The pane carries a caption along its top reading **Live Preview**, followed by what it is
 currently doing — *updates as you type on the left*, *click any block to jump to its
 source*, or *editable, your changes go back to the text*. It changes with the mode, so the
-pane always explains itself.
+pane always explains itself. The editor is captioned **Markdown source** to match.
+
+### Why the two panes only line up at the top
+
+Line 1 of your text sits exactly level with line 1 of the rendering. After that they drift,
+and that is unavoidable rather than unfinished:
+
+- `# Heading` is one source line but renders nearly twice as tall
+- A four-line table renders as three rows and a rule
+- ` ``` ` fence markers take a source line each and render as nothing
+- One long paragraph wraps to a different number of lines on each side
+
+Nothing short of proportional scroll syncing — moving one pane by percentage when the other
+moves — can keep them together, and that is a different feature with its own awkwardness.
+The first line is the one worth guaranteeing, so that is the one MiniPad guarantees.
 
 Choose how the pane behaves under **Markdown > Preview Mode**.
 
@@ -1027,9 +1041,12 @@ Settings…** turns it on and off — switching off copies your settings back to
 before removing the file, so nothing is lost. **About > Build & Libraries** shows which file
 is in use.
 
-**The preview pane is captioned.** It reads "Live Preview" followed by what the pane is
-currently doing, so the second copy of your text is explained rather than left to be guessed
-at.
+**Both panes are captioned** — "Markdown source" and "Live Preview" — so the second copy of
+your text is explained rather than left to be guessed at. The preview caption also names what
+the pane is currently doing.
+
+**The two panes start at the same height**, so line 1 of your text is level with line 1 of the
+rendering. Only the first line can be guaranteed: see section 9.
 
 **Fixed:** the build report in About listed four source files when there are ten.
 

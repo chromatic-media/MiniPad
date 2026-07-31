@@ -37,6 +37,13 @@ public class MainForm : Form
     private ToolStripMenuItem previewItem;
     private ToolStripMenuItem portableItem;
     private Label previewCaption;
+    private Label editorCaption;
+
+    // The two panes are kept in vertical step by construction rather than by
+    // eye: identical caption heights, and an editor inset equal to the preview
+    // stylesheet's body padding-top. Change either and change the CSS to match.
+    private const int CaptionHeight = 22;
+    private const int PreviewTopPadding = 24;
     private ToolStripMenuItem[] modeItems;
 
     private ToolStripStatusLabel zoomLabel;
@@ -116,6 +123,21 @@ public class MainForm : Form
 
         editorHost = new Panel();
         editorHost.Dock = DockStyle.Fill;
+        // Matches the preview's body padding-top, so line 1 of the source sits at
+        // the same height as line 1 of the rendering. A WinForms TextBox has no
+        // usable padding of its own, so the inset comes from its host panel.
+        editorHost.Padding = new Padding(0, PreviewTopPadding, 0, 0);
+
+        // Both panes carry a caption of the same height. Beyond naming them, the
+        // matching height is what keeps the two first lines level - a caption over
+        // only one pane offsets everything below it by its own height.
+        editorCaption = new Label();
+        editorCaption.Dock = DockStyle.Top;
+        editorCaption.AutoSize = false;
+        editorCaption.Height = CaptionHeight;
+        editorCaption.TextAlign = ContentAlignment.MiddleLeft;
+        editorCaption.Padding = new Padding(8, 0, 0, 0);
+        editorCaption.Text = "Markdown source";
 
         preview = new WebBrowser();
         preview.Dock = DockStyle.Fill;
@@ -132,7 +154,7 @@ public class MainForm : Form
         previewCaption = new Label();
         previewCaption.Dock = DockStyle.Top;
         previewCaption.AutoSize = false;
-        previewCaption.Height = 22;
+        previewCaption.Height = CaptionHeight;
         previewCaption.TextAlign = ContentAlignment.MiddleLeft;
         previewCaption.Padding = new Padding(8, 0, 0, 0);
         previewCaption.Text = "Live Preview";
@@ -141,6 +163,7 @@ public class MainForm : Form
         split.Dock = DockStyle.Fill;
         split.Orientation = Orientation.Vertical;
         split.Panel1.Controls.Add(editorHost);
+        split.Panel1.Controls.Add(editorCaption);
         // The filled control goes in first, so the caption can claim the top edge
         // from what is left rather than being painted over.
         split.Panel2.Controls.Add(preview);
@@ -1147,6 +1170,8 @@ public class MainForm : Form
         modeLabel.ForeColor = Theme.UiDim;
         previewCaption.BackColor = Theme.WindowBack;
         previewCaption.ForeColor = Theme.UiDim;
+        editorCaption.BackColor = Theme.WindowBack;
+        editorCaption.ForeColor = Theme.UiDim;
         UpdateZoomLabel();
 
         RenderPreview();   // the preview stylesheet changes with the theme

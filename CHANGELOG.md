@@ -25,12 +25,24 @@ Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic)
   it off copies your settings back to your profile *before* deleting the file.
 - **About > Build & Libraries** now reports which settings file is in use, and whether
   portable mode is on.
-- **The preview pane is captioned.** Until now the second pane was unexplained: you type on
-  the left, the same words appear on the right, and nothing tells you why. The caption names
-  it and says what it is currently doing — *"updates as you type on the left"*, or *"click
-  any block to jump to its source"*, or *"editable, your changes go back to the text"*. The
-  last of those is the one that earns its place: in editable mode the pane accepts typing,
-  and a user who does not know that is going to be surprised either way.
+- **Both panes are captioned** — "Markdown source" on the left, "Live Preview" on the right.
+  Until now the second pane was unexplained: you type on the left, the same words appear on
+  the right, and nothing tells you why. The preview caption also says what the pane is
+  currently doing — *"updates as you type on the left"*, or *"click any block to jump to its
+  source"*, or *"editable, your changes go back to the text"*. The last of those is the one
+  that most earns its place: in editable mode the pane accepts typing, and a user who does
+  not know that is going to be surprised either way.
+- **The two panes now start at the same height.** Line 1 of the source sits level with line 1
+  of the rendering. Previously the preview began about 70px lower on Windows and 30px on
+  Linux, from a mixture of body padding, the first heading's own top margin, and (briefly)
+  a caption over only one pane.
+
+  This is alignment of the *first* line, not of every line, and that is a real limit rather
+  than an unfinished job: `# Heading` is one source line but renders nearly twice as tall, a
+  four-line table renders as three rows and a rule, and ` ``` ` fence markers occupy a source
+  line while rendering as nothing at all. After the first heading any two documents drift
+  apart permanently. Keeping them in step would need proportional scroll syncing, which is a
+  different feature.
 
 ### Changed
 

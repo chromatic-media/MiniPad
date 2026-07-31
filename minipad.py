@@ -32,6 +32,10 @@ from tkinter import ttk
 
 APP_NAME = "MiniPad"
 VERSION = "1.09"
+
+# The editor and the preview share this top inset so their first lines sit at
+# the same height. Change it and both panes move together.
+PREVIEW_PAD_Y = 12
 RELEASE_DATE = "7/31/26"
 DESIGNER = "Tim Broussard"
 AUTHOR = "Legion"
@@ -1202,8 +1206,11 @@ class Document(object):
         self.newline = "\n"
 
         self.frame = tk.Frame(host)
+        # pady matches the preview's, so line 1 of the source sits level with
+        # line 1 of the rendering. The preview's first block also has its own
+        # spacing zeroed - see configure_preview_tags.
         self.editor = tk.Text(self.frame, undo=True, wrap=tk.WORD,
-                              padx=6, pady=4, relief=tk.FLAT)
+                              padx=6, pady=PREVIEW_PAD_Y, relief=tk.FLAT)
         self.vscroll = tk.Scrollbar(self.frame, command=self.editor.yview)
         self.editor.configure(yscrollcommand=self.vscroll.set)
         self.hscroll = tk.Scrollbar(self.frame, orient=tk.HORIZONTAL,
@@ -1829,6 +1836,14 @@ class MiniPad(object):
         self.panes.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         self.editor_host = tk.Frame(self.panes)
+
+        # Both panes carry a caption of the same height. Beyond naming them, the
+        # matching height is what keeps the two first lines level - a caption over
+        # only one pane offsets everything below it by its own height.
+        self.editor_caption = tk.Label(self.editor_host, text="Markdown source",
+                                       anchor=tk.W, padx=8)
+        self.editor_caption.pack(side=tk.TOP, fill=tk.X)
+
         self.panes.add(self.editor_host, stretch="always")
 
         self.preview_frame = tk.Frame(self.panes)
@@ -1843,7 +1858,7 @@ class MiniPad(object):
 
         self.preview = tk.Text(self.preview_frame, wrap=tk.WORD, state=tk.DISABLED,
                                font=(self.preview_family, self.base_size),
-                               padx=16, pady=12, relief=tk.FLAT,
+                               padx=16, pady=PREVIEW_PAD_Y, relief=tk.FLAT,
                                background="#ffffff", cursor="arrow")
         self.preview_scroll = tk.Scrollbar(self.preview_frame, command=self.preview.yview)
         self.preview.configure(yscrollcommand=self.preview_scroll.set)
@@ -2647,9 +2662,10 @@ class MiniPad(object):
 
         for label in (self.status, self.mode_status):
             label.configure(background=Theme.menu_back(), foreground=Theme.ui_dim())
-        caption = getattr(self, "preview_caption", None)
-        if caption is not None:
-            caption.configure(background=Theme.menu_back(), foreground=Theme.ui_dim())
+        for name in ("preview_caption", "editor_caption"):
+            caption = getattr(self, name, None)
+            if caption is not None:
+                caption.configure(background=Theme.menu_back(), foreground=Theme.ui_dim())
         self.update_zoom_label()
 
         self.configure_preview_tags()
@@ -2827,6 +2843,10 @@ class MiniPad(object):
         step = Theme.scale_pixels
         self.span_tags.clear()  # rebuild inline tags against the new base font
         self.preview.configure(font=(self.preview_family, base))
+        # Applied to the first rendered line only, and raised above every other
+        # tag, so the pane's first block starts flush with its padding and lines
+        # up with line 1 of the editor. See render_preview.
+        self.preview.tag_configure("firstblock", spacing1=0)
         self.preview.tag_configure("code_block",
                                    font=("monospace", self.scaled(self.base_size - 1)),
                                    background=Theme.code_back(),
@@ -2908,6 +2928,12 @@ class MiniPad(object):
                 self.style_source()
             else:
                 self.render_blocks(parse_blocks(self.editor.get("1.0", "end-1c")), 0)
+                # The first block starts flush with the pane's padding, so line 1
+                # of the rendering sits level with line 1 of the source. A heading
+                # otherwise adds its own spacing on top and the panes start out of
+                # step. The tag is raised so it beats the block's own spacing1.
+                self.preview.tag_add("firstblock", "1.0", "1.end")
+                self.preview.tag_raise("firstblock")
         finally:
             self.preview.configure(state=tk.NORMAL if editable else tk.DISABLED,
                                    cursor="xterm" if editable else "arrow")
