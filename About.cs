@@ -11,7 +11,7 @@ using Microsoft.Win32;
 public static class AppInfo
 {
     public const string Name = "MiniPad";
-    public const string Version = "1.08";
+    public const string Version = "1.09";
     public const string ReleaseDate = "7/31/26";
     public const string Designer = "Tim Broussard";
     public const string Author = "Legion";
@@ -408,7 +408,18 @@ public class AboutBox : Form
         report.AppendLine("  Compiler         csc.exe (.NET Framework 4, Framework64 v4.0.30319)");
         report.AppendLine("  Language         C# 5");
         report.AppendLine("  Sources          MiniPad.cs, Markdown.cs, HtmlToMarkdown.cs,");
-        report.AppendLine("                   About.cs");
+        report.AppendLine("                   About.cs, Help.cs, Games.cs, Theme.cs,");
+        report.AppendLine("                   Appearance.cs, Document.cs, TabStrip.cs");
+        report.AppendLine();
+
+        report.AppendLine("SETTINGS");
+        report.AppendLine("  Mode             " + (Theme.IsPortable
+                                                ? "Portable - kept beside the program"
+                                                : "Normal - kept in your user profile"));
+        report.AppendLine("  In use           " + Theme.SettingsPath);
+        if (!Theme.IsPortable)
+            report.AppendLine("  Portable file    " + Theme.PortableSettingsPath + "  (not present)");
+        report.AppendLine("  Switch with      Format > Portable Settings...");
         report.AppendLine();
 
         report.AppendLine("RUNTIME");

@@ -6,7 +6,7 @@ It opens and saves ordinary `.txt` and `.md` files, and it never changes anythin
 file that you did not change yourself. No network access, no telemetry, no installer, and
 no third-party libraries — it calls only what the operating system already provides.
 
-**Version 1.08**
+**Version 1.09**
 
 ---
 

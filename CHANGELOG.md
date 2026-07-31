@@ -8,6 +8,54 @@ Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic)
 
 ---
 
+## 1.09 — 7/31/26
+
+### Added
+
+- **Preferences are remembered between sessions.** Font family and size, preview mode, word
+  wrap, and window size and position now persist. Previously they reset on every launch,
+  which made MiniPad feel as though it half-remembered you — it kept how it looked but forgot
+  how you worked. The font was the worst of it: choosing one and losing it each morning reads
+  as a fault rather than a default.
+- **Portable settings.** A `settings.txt` in the same folder as the program is used in
+  preference to the one in your user profile, which is left untouched. The file's presence is
+  the whole switch — there is deliberately no prompt and no first-run banner, because the
+  feature matters to people running from a USB stick or a locked-down machine and nobody else
+  should have to think about it. **Format > Portable Settings…** turns it on and off; turning
+  it off copies your settings back to your profile *before* deleting the file.
+- **About > Build & Libraries** now reports which settings file is in use, and whether
+  portable mode is on.
+
+### Changed
+
+- Settings are loaded before any control is built, rather than partway through. The font,
+  word wrap, preview mode and window size all have to be known before the things that use
+  them exist, and a control built with a default and corrected afterwards flickers visibly on
+  a slow machine.
+
+### Fixed
+
+- The build report in About listed four source files when there are ten.
+
+### Notes on the design
+
+Two remembered values are treated with suspicion when read back, and both guard against the
+same class of problem — a settings file that is perfectly valid somewhere else.
+
+A **font** is checked against the machine actually running MiniPad. Tk and WinForms both
+substitute silently for an unknown family, so a file carried from another computer would hand
+you a typeface you never chose, with nothing to explain it.
+
+A **window position** is only restored if it still lands on a screen that exists. Otherwise
+unplugging a second monitor would reopen MiniPad at coordinates nobody can reach, which looks
+exactly like a program failing to start. The check uses intersection rather than containment,
+so a window deliberately nudged half off the edge is left alone.
+
+Writing beside the program is not always permitted — `Program Files` and write-protected
+sticks both refuse. Turning portable mode on reports that plainly instead of failing
+silently, and a portable file that becomes unwritable mid-session falls back to the profile
+rather than losing the session's changes.
+
 ## 1.08 — 7/31/26
 
 ### Added

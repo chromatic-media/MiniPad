@@ -73,6 +73,17 @@ public static class Theme
     // found rather than hunted for; remembered after that.
     public static bool PreviewOn { get; private set; }
 
+    // How the program is used, rather than how it looks. These used to reset on
+    // every launch, which made the editor feel like it was forgetting you: the
+    // font in particular, since choosing one and losing it each morning reads as
+    // a fault rather than a default.
+    public static string FontFamily { get; private set; }   // "" = the built-in default
+    public static float FontSize { get; private set; }      // 0  = the built-in default
+    public static int PreviewMode { get; private set; }     // 0 read-only, 1 click-to-jump, 2 editable
+    public static bool WordWrap { get; private set; }
+    public static Rectangle WindowBounds { get; private set; }  // Empty = centre at the default size
+    public static bool WindowMaximised { get; private set; }
+
     // ---- the palettes ----
 
     private static readonly List<Palette> All = new List<Palette>
@@ -249,13 +260,93 @@ public static class Theme
 
     // ---- persistence ----
 
-    private static string SettingsPath
+    // ---- where settings live: portable, or the user profile ----
+    //
+    // Portable mode is switched on by the mere PRESENCE of settings.txt beside the
+    // executable. There is deliberately no prompt and no first-run banner: the
+    // feature matters to people running MiniPad from a USB stick or a locked-down
+    // machine, and everyone else should never have to think about it. The menu item
+    // under Format is the whole of its advertising.
+    //
+    // Presence, not a flag inside the file, is the switch - so a user can enable it
+    // with nothing but a text editor, and disable it by deleting one file.
+
+    public static string PortableSettingsPath
+    {
+        get
+        {
+            try { return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.txt"); }
+            catch { return null; }
+        }
+    }
+
+    public static string ProfileSettingsPath
     {
         get
         {
             string folder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MiniPad");
             return Path.Combine(folder, "settings.txt");
+        }
+    }
+
+    public static bool IsPortable
+    {
+        get
+        {
+            try
+            {
+                string portable = PortableSettingsPath;
+                return portable != null && File.Exists(portable);
+            }
+            catch { return false; }
+        }
+    }
+
+    // Which file is actually in use. Shown in the About box so the mode is never
+    // a mystery - "why did it forget my theme" is otherwise unanswerable.
+    public static string SettingsPath
+    {
+        get { return IsPortable ? PortableSettingsPath : ProfileSettingsPath; }
+    }
+
+    // Returns null on success, or a human-readable reason it failed. Writing beside
+    // the executable is not always allowed - Program Files and write-protected
+    // sticks both refuse - and that must be reported, not swallowed.
+    public static string MakePortable()
+    {
+        string portable = PortableSettingsPath;
+        if (portable == null) return "The program's own folder could not be determined.";
+        if (File.Exists(portable)) return null;      // already portable, nothing to do
+        try
+        {
+            WriteTo(portable);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
+    // The caller is responsible for confirming with the user first: this deletes a
+    // file. Settings are copied back to the profile before it goes, so switching
+    // off never loses the user's choices.
+    public static string MakeNotPortable()
+    {
+        string portable = PortableSettingsPath;
+        if (portable == null || !File.Exists(portable)) return null;
+        try
+        {
+            string folder = Path.GetDirectoryName(ProfileSettingsPath);
+            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+            WriteTo(ProfileSettingsPath);
+            File.Delete(portable);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
         }
     }
 
@@ -267,6 +358,12 @@ public static class Theme
         CustomBack = null;
         CustomText = null;
         PreviewOn = true;
+        FontFamily = "";
+        FontSize = 0;
+        PreviewMode = 0;
+        WordWrap = true;
+        WindowBounds = Rectangle.Empty;
+        WindowMaximised = false;
 
         try
         {
@@ -308,6 +405,47 @@ public static class Theme
                     // value errs towards showing the pane rather than hiding it.
                     PreviewOn = !value.Equals("off", StringComparison.OrdinalIgnoreCase);
                 }
+                else if (key == "fontfamily")
+                {
+                    // Not validated here. The font may exist on the machine that
+                    // wrote the file and not on this one - especially with portable
+                    // settings on a USB stick - so the editor checks it at the point
+                    // of use and falls back rather than failing here.
+                    FontFamily = value.Equals("none", StringComparison.OrdinalIgnoreCase) ? "" : value;
+                }
+                else if (key == "fontsize")
+                {
+                    float size;
+                    if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out size)
+                        && size >= 5 && size <= 72)
+                        FontSize = size;
+                }
+                else if (key == "previewmode")
+                {
+                    int mode;
+                    if (int.TryParse(value, out mode) && mode >= 0 && mode <= 2) PreviewMode = mode;
+                }
+                else if (key == "wordwrap")
+                {
+                    WordWrap = !value.Equals("off", StringComparison.OrdinalIgnoreCase);
+                }
+                else if (key == "window")
+                {
+                    // "x,y,width,height". Restored only if it lands on a screen that
+                    // still exists - see MainForm - so unplugging a second monitor
+                    // cannot strand the window off the visible desktop.
+                    string[] bits = value.Split(',');
+                    int x, y, w, h;
+                    if (bits.Length == 4
+                        && int.TryParse(bits[0], out x) && int.TryParse(bits[1], out y)
+                        && int.TryParse(bits[2], out w) && int.TryParse(bits[3], out h)
+                        && w > 200 && h > 150)
+                        WindowBounds = new Rectangle(x, y, w, h);
+                }
+                else if (key == "maximised")
+                {
+                    WindowMaximised = value.Equals("on", StringComparison.OrdinalIgnoreCase);
+                }
             }
         }
         catch
@@ -335,17 +473,75 @@ public static class Theme
     {
         try
         {
-            string folder = Path.GetDirectoryName(SettingsPath);
+            string target = SettingsPath;
+            string folder = Path.GetDirectoryName(target);
             if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-            File.WriteAllText(SettingsPath,
-                "theme=" + Mode.ToString().ToLowerInvariant() + "\r\n"
-              + "preset=" + (PresetName == NoPreset ? "none" : PresetName) + "\r\n"
-              + "zoom=" + Zoom + "\r\n"
-              + "background=" + (CustomBack.HasValue ? Palette.ToHex(CustomBack.Value) : "none") + "\r\n"
-              + "text=" + (CustomText.HasValue ? Palette.ToHex(CustomText.Value) : "none") + "\r\n"
-              + "preview=" + (PreviewOn ? "on" : "off") + "\r\n");
+            WriteTo(target);
         }
-        catch { }   // a read-only profile must not stop the app working
+        catch
+        {
+            // A read-only profile must not stop the app working. If the portable
+            // file has become unwritable - a stick flipped to read-only mid-session
+            // - fall back to the profile rather than silently losing the settings.
+            try
+            {
+                if (IsPortable)
+                {
+                    string folder = Path.GetDirectoryName(ProfileSettingsPath);
+                    if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+                    WriteTo(ProfileSettingsPath);
+                }
+            }
+            catch { }
+        }
+    }
+
+    private static void WriteTo(string path)
+    {
+        File.WriteAllText(path,
+            "theme=" + Mode.ToString().ToLowerInvariant() + "\r\n"
+          + "preset=" + (PresetName == NoPreset ? "none" : PresetName) + "\r\n"
+          + "zoom=" + Zoom + "\r\n"
+          + "background=" + (CustomBack.HasValue ? Palette.ToHex(CustomBack.Value) : "none") + "\r\n"
+          + "text=" + (CustomText.HasValue ? Palette.ToHex(CustomText.Value) : "none") + "\r\n"
+          + "preview=" + (PreviewOn ? "on" : "off") + "\r\n"
+          + "fontfamily=" + (string.IsNullOrEmpty(FontFamily) ? "none" : FontFamily) + "\r\n"
+          + "fontsize=" + FontSize.ToString(CultureInfo.InvariantCulture) + "\r\n"
+          + "previewmode=" + PreviewMode + "\r\n"
+          + "wordwrap=" + (WordWrap ? "on" : "off") + "\r\n"
+          + "window=" + (WindowBounds.IsEmpty ? "none"
+                : string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3}",
+                    WindowBounds.X, WindowBounds.Y, WindowBounds.Width, WindowBounds.Height)) + "\r\n"
+          + "maximised=" + (WindowMaximised ? "on" : "off") + "\r\n");
+    }
+
+    public static void SetFont(string family, float size)
+    {
+        FontFamily = family == null ? "" : family;
+        FontSize = size;
+        Save();
+    }
+
+    public static void SetPreviewMode(int mode)
+    {
+        if (mode < 0 || mode > 2 || PreviewMode == mode) return;
+        PreviewMode = mode;
+        Save();
+    }
+
+    public static void SetWordWrap(bool wrap)
+    {
+        if (WordWrap == wrap) return;
+        WordWrap = wrap;
+        Save();
+    }
+
+    // Called as the window closes, so a session's final geometry is what returns.
+    public static void SetWindow(Rectangle bounds, bool maximised)
+    {
+        WindowBounds = bounds;
+        WindowMaximised = maximised;
+        Save();
     }
 
     public static void SetMode(ThemeMode mode) { Mode = mode; Save(); }

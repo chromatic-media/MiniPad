@@ -1,6 +1,6 @@
 # MiniPad Owner's Manual
 
-**Version 1.08** — 7/31/26
+**Version 1.09** — 7/31/26
 Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic).
 
 Open this file in MiniPad and press **F9** to read it as rendered Markdown, or press
@@ -693,7 +693,7 @@ all of it on the clipboard, which is the quickest way to tell someone what you a
 
 ### Settings
 
-Your appearance choices are kept in:
+Your choices are kept in:
 
 | Build | Location |
 |---|---|
@@ -712,10 +712,58 @@ zoom=100
 background=none
 text=none
 preview=on
+fontfamily=none
+fontsize=0
+previewmode=0
+wordwrap=on
+window=none
+maximised=off
 ```
 
-`preview` is the only one that is not about colour: it remembers whether the preview pane
-was showing. A file written by a version before 1.08 has no such line, and the pane shows.
+The first six describe how MiniPad *looks*; the rest describe how you *work* with it, and
+were added in 1.09 — before that they reset on every launch.
+
+| Key | Means |
+|---|---|
+| `preview` | Whether the preview pane was showing |
+| `fontfamily`, `fontsize` | Your choice from **Format > Font**. `none` and `0` mean the built-in default |
+| `previewmode` | `0` read-only, `1` click to jump, `2` editable |
+| `wordwrap` | `on` or `off` |
+| `window` | Size and position. `none` means centre it at the default size |
+| `maximised` | Whether the window was maximised |
+
+Two of these are treated with suspicion when read back, deliberately. **A font is checked
+against the machine actually running MiniPad** — a settings file that travelled from another
+computer may name a font this one does not have, and the alternative is being silently given
+a typeface you never chose. **A window position is only restored if it still lands on a
+screen that exists**; unplug a second monitor and MiniPad returns to the middle of the
+remaining one rather than opening where you cannot reach it.
+
+A file written by an older version simply has fewer lines. Anything missing takes its
+default, so upgrading never loses your settings and never fails to start.
+
+### Portable settings
+
+Normally MiniPad keeps that file in your user profile. **If a `settings.txt` exists in the
+same folder as the program, MiniPad uses that one instead** and leaves your profile
+untouched.
+
+That is the whole mechanism: the file's presence is the switch. It suits a USB stick, or a
+machine where you would rather not leave anything behind — move the program and its
+`settings.txt` together and your preferences travel with them.
+
+**Format > Portable Settings…** turns it on and off. Turning it on writes the file for you;
+turning it off copies your settings back to your profile *before* deleting it, so nothing is
+lost either way. You can equally create the file by hand with any text editor — an empty one
+is enough, since MiniPad fills it in on the first change.
+
+**About > Build & Libraries** always shows which file is in use, so the mode is never a
+mystery.
+
+If the program lives somewhere you cannot write to — `Program Files`, or a write-protected
+stick — turning portable mode on will fail and say so plainly, and your settings carry on
+being saved to your profile. If a portable file becomes unwritable *while* MiniPad is
+running, it quietly falls back to the profile rather than losing your changes.
 
 Nothing else is written outside your documents. No registry keys, no temporary files.
 
@@ -951,6 +999,30 @@ look it over first.
 
 Also kept as `CHANGELOG.md` beside the program. There is no 1.02 — the version went from
 1.01 to 1.03 at the owner's request.
+
+### 1.09 — 7/31/26
+
+**MiniPad now remembers how you work, not only how it looks.** Your font, preview mode, word
+wrap and window size and position are all kept between sessions. Previously they reset on
+every launch — the font most annoyingly of all, since choosing one and losing it each morning
+reads as a fault rather than a default. See section 15 for the full list of what is stored.
+
+Two of them are checked rather than trusted when read back. A remembered **font** must exist
+on the machine actually running MiniPad, or the built-in default is used — otherwise a
+settings file brought from another computer would silently hand you a typeface you never
+chose. A remembered **window position** must still land on a screen that exists, so
+unplugging a second monitor returns MiniPad to the middle of the remaining one instead of
+opening it where you cannot reach it.
+
+**Portable settings.** If a `settings.txt` sits in the same folder as the program, MiniPad
+uses it and leaves your user profile alone. The file's presence is the entire switch: no
+prompt, no first-run question, nothing for anyone who does not want it. Made for USB sticks
+and machines where you would rather not leave anything behind. **Format > Portable
+Settings…** turns it on and off — switching off copies your settings back to your profile
+before removing the file, so nothing is lost. **About > Build & Libraries** shows which file
+is in use.
+
+**Fixed:** the build report in About listed four source files when there are ten.
 
 ### 1.08 — 7/31/26
 

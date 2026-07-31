@@ -35,6 +35,7 @@ public class MainForm : Form
     private ToolStripStatusLabel modeLabel;
     private ToolStripMenuItem wordWrapItem;
     private ToolStripMenuItem previewItem;
+    private ToolStripMenuItem portableItem;
     private ToolStripMenuItem[] modeItems;
 
     private ToolStripStatusLabel zoomLabel;
@@ -84,11 +85,28 @@ public class MainForm : Form
     // `new MainForm(null)` ambiguous, and the compiler is right to complain.
     public MainForm(string[] startupPaths)
     {
+        // Settings are loaded FIRST, before any control is built. The font, word
+        // wrap, preview mode and window geometry all have to be known before the
+        // things that use them exist, and a control built with a default and
+        // corrected afterwards flickers visibly on a slow machine.
+        Theme.Load();
+
         Text = "MiniPad";
         Width = 1100;
         Height = 700;
         StartPosition = FormStartPosition.CenterScreen;
         AllowDrop = true;
+
+        // A remembered font may have come from another machine - portable settings
+        // travel on a USB stick - so it is validated here rather than trusted. An
+        // absent family silently substitutes in WinForms, which would leave the user
+        // with a font they did not choose and no idea why.
+        if (!string.IsNullOrEmpty(Theme.FontFamily) && FontFamilyExists(Theme.FontFamily))
+            baseFontFamily = Theme.FontFamily;
+        if (Theme.FontSize > 0)
+            baseFontSize = Theme.FontSize;
+
+        RestoreWindowPosition();
 
         tabs = new TabStrip();
         tabs.TabSelected += new TabIndexHandler(OnTabSelected);
@@ -153,7 +171,6 @@ public class MainForm : Form
             syncTimer.Dispose();
         };
         AppInfo.ApplyIcon(this);
-        Theme.Load();
 
         // There is always at least one document, so `current` is never null.
         AddDocument(NewDocument());
@@ -162,6 +179,13 @@ public class MainForm : Form
         // found rather than hunted for. The splitter has no width until Shown,
         // which is where the first render happens.
         EnablePreview(Theme.PreviewOn, false);
+        // Restore the remembered preview mode without going through SetPreviewMode,
+        // which would turn the pane on as a side effect - wrong when the user last
+        // left it hidden, and it would also re-save what we just read.
+        previewMode = (PreviewMode)Theme.PreviewMode;
+        for (int index = 0; index < modeItems.Length; index++)
+            modeItems[index].Checked = index == Theme.PreviewMode;
+        UpdatePortableItem();
         ApplyTheme();
 
         Shown += delegate
@@ -385,11 +409,14 @@ public class MainForm : Form
 
         ToolStripMenuItem format = new ToolStripMenuItem("F&ormat");
         wordWrapItem = Item("&Word Wrap", Keys.None, delegate { ToggleWordWrap(); });
-        wordWrapItem.Checked = true;
+        wordWrapItem.Checked = Theme.WordWrap;
         format.DropDownItems.Add(wordWrapItem);
         format.DropDownItems.Add(Item("&Font...", Keys.None, delegate { ChooseFont(); }));
         format.DropDownItems.Add(new ToolStripSeparator());
         format.DropDownItems.Add(Item("&Appearance...", Keys.None, delegate { ShowAppearance(); }));
+        format.DropDownItems.Add(new ToolStripSeparator());
+        portableItem = Item("Portable &Settings...", Keys.None, delegate { TogglePortable(); });
+        format.DropDownItems.Add(portableItem);
         format.DropDownItems.Add(new ToolStripSeparator());
         format.DropDownItems.Add(Item("Zoom &In", Keys.Control | Keys.Oemplus,
             delegate { ChangeZoom(10); }));
@@ -803,6 +830,7 @@ public class MainForm : Form
     private void SetPreviewMode(PreviewMode mode)
     {
         previewMode = mode;
+        Theme.SetPreviewMode((int)mode);
         foreach (ToolStripMenuItem item in modeItems)
             item.Checked = false;
         modeItems[(int)mode].Checked = true;
@@ -992,6 +1020,72 @@ public class MainForm : Form
             document.Editor.WordWrap = wrap;
             document.Editor.ScrollBars = wrap ? ScrollBars.Vertical : ScrollBars.Both;
         }
+        Theme.SetWordWrap(wrap);
+    }
+
+    // Portable settings: on or off, with the consequences spelled out before
+    // anything happens. Switching off deletes a file, so it asks first - and it
+    // copies the settings back to the profile before deleting, so no choice is lost.
+    private void TogglePortable()
+    {
+        if (!Theme.IsPortable)
+        {
+            string question =
+                "Keep MiniPad's settings in a file next to the program itself, rather "
+              + "than in your user profile?\r\n\r\n"
+              + "This is for running MiniPad from a USB stick, or on a machine where "
+              + "you would rather not leave anything behind.\r\n\r\n"
+              + "The file would be:\r\n" + Theme.PortableSettingsPath;
+            if (MessageBox.Show(this, question, "MiniPad - Portable Settings",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                return;
+
+            string failure = Theme.MakePortable();
+            if (failure != null)
+            {
+                MessageBox.Show(this,
+                    "Portable settings could not be turned on.\r\n\r\n" + failure
+                  + "\r\n\r\nThis usually means the program is in a folder you cannot "
+                  + "write to, such as Program Files. Your settings are unchanged and "
+                  + "are still being saved to your user profile.",
+                    "MiniPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            MessageBox.Show(this,
+                "Portable settings are on.\r\n\r\nSettings are now saved to:\r\n"
+              + Theme.SettingsPath + "\r\n\r\nMove the program and that file together and "
+              + "your preferences travel with it. Deleting the file returns MiniPad to "
+              + "using your user profile.",
+                "MiniPad", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        else
+        {
+            if (MessageBox.Show(this,
+                    "Turn portable settings off?\r\n\r\nYour current settings will be copied "
+                  + "back to your user profile first, and then this file will be deleted:\r\n"
+                  + Theme.PortableSettingsPath,
+                    "MiniPad - Portable Settings",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                return;
+
+            string failure = Theme.MakeNotPortable();
+            if (failure != null)
+            {
+                MessageBox.Show(this, "The file could not be removed.\r\n\r\n" + failure,
+                    "MiniPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            MessageBox.Show(this,
+                "Portable settings are off. Settings are saved to:\r\n" + Theme.SettingsPath,
+                "MiniPad", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        UpdatePortableItem();
+    }
+
+    private void UpdatePortableItem()
+    {
+        if (portableItem == null) return;
+        portableItem.Checked = Theme.IsPortable;
     }
 
     // ---- appearance ----
@@ -1061,6 +1155,49 @@ public class MainForm : Form
         Font chosen = new Font(baseFontFamily, Theme.ScaleFont(baseFontSize));
         foreach (Document document in documents)
             document.Editor.Font = chosen;
+        Theme.SetFont(baseFontFamily, baseFontSize);
+    }
+
+    private static bool FontFamilyExists(string name)
+    {
+        try
+        {
+            using (FontFamily family = new FontFamily(name)) { return family != null; }
+        }
+        catch { return false; }     // FontFamily throws when the name is unknown
+    }
+
+    // Only restore a position that still lands on a screen that exists. Unplugging
+    // a second monitor would otherwise reopen the window at coordinates nobody can
+    // reach, which looks exactly like the program failing to start.
+    private void RestoreWindowPosition()
+    {
+        Rectangle saved = Theme.WindowBounds;
+        if (!saved.IsEmpty)
+        {
+            bool onScreen = false;
+            foreach (Screen screen in Screen.AllScreens)
+            {
+                // Intersects, not Contains: a window nudged partly off the edge is
+                // still perfectly usable and should not be thrown away.
+                if (screen.WorkingArea.IntersectsWith(saved)) { onScreen = true; break; }
+            }
+            if (onScreen)
+            {
+                StartPosition = FormStartPosition.Manual;
+                Bounds = saved;
+            }
+        }
+        if (Theme.WindowMaximised) WindowState = FormWindowState.Maximized;
+    }
+
+    private void SaveWindowPosition()
+    {
+        // RestoreBounds rather than Bounds, so a maximised window remembers the size
+        // it will return to instead of the size of the screen.
+        Rectangle bounds = WindowState == FormWindowState.Normal ? Bounds : RestoreBounds;
+        if (bounds.Width > 200 && bounds.Height > 150)
+            Theme.SetWindow(bounds, WindowState == FormWindowState.Maximized);
     }
 
     private void UpdateTitle()
@@ -1234,6 +1371,10 @@ public class MainForm : Form
             e.Cancel = true;
             return;
         }
+
+        // Only once the close is certain. Saving geometry before the unsaved-changes
+        // prompt would record a position for a window the user then decided to keep.
+        SaveWindowPosition();
     }
 
     [STAThread]

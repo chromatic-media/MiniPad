@@ -28,7 +28,7 @@ few days rather than a few hours. If a fix is warranted, you will be credited in
 
 | Version | Supported |
 |---|---|
-| 1.08 (current) | Yes |
+| 1.09 (current) | Yes |
 | Anything earlier | No — please update first |
 
 Only the latest version is maintained. There are no long-term support branches.

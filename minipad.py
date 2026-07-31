@@ -31,7 +31,7 @@ from tkinter import messagebox
 from tkinter import ttk
 
 APP_NAME = "MiniPad"
-VERSION = "1.08"
+VERSION = "1.09"
 RELEASE_DATE = "7/31/26"
 DESIGNER = "Tim Broussard"
 AUTHOR = "Legion"
@@ -141,6 +141,17 @@ class Theme(object):
     # justify a second settings file. On for a first run, so the preview is
     # found rather than hunted for; remembered after that.
     preview_on = True
+
+    # How the program is used, rather than how it looks. These used to reset on
+    # every launch, which made the editor feel like it was forgetting you - the
+    # font most of all, since choosing one and losing it each morning reads as a
+    # fault rather than a default.
+    font_family = ""                # "" = the built-in default
+    font_size = 0                   # 0  = the built-in default
+    preview_mode = 0                # 0 read-only, 1 click-to-jump, 2 editable
+    word_wrap = True
+    window_geometry = ""            # Tk "WxH+X+Y"; "" = let Tk decide
+    window_maximised = False
 
     PALETTES = [
         Palette("Light",           False, "ffffff", "181a1f", "f0f0f0", "0969da", "eff1f3", "d0d7de", "5a606a"),
@@ -333,10 +344,69 @@ class Theme(object):
 
     # ---- persistence ----
 
+    # Portable mode is switched on by the mere PRESENCE of settings.txt beside the
+    # script. There is deliberately no prompt and no first-run banner: it matters to
+    # people running MiniPad from a USB stick or a locked-down machine, and everyone
+    # else should never have to think about it. The Format menu item is its whole
+    # advertising. Presence rather than a flag inside the file means a user can turn
+    # it on with a text editor and off by deleting one file.
+
     @staticmethod
-    def settings_path():
+    def portable_settings_path():
+        try:
+            return os.path.join(os.path.dirname(os.path.abspath(__file__)), "settings.txt")
+        except (OSError, NameError):
+            return None
+
+    @staticmethod
+    def profile_settings_path():
         folder = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
         return os.path.join(folder, "minipad", "settings.txt")
+
+    @classmethod
+    def is_portable(cls):
+        try:
+            path = cls.portable_settings_path()
+            return path is not None and os.path.exists(path)
+        except OSError:
+            return False
+
+    @classmethod
+    def settings_path(cls):
+        """Which file is actually in use - shown in About so the mode is never a mystery."""
+        return cls.portable_settings_path() if cls.is_portable() else cls.profile_settings_path()
+
+    @classmethod
+    def make_portable(cls):
+        """Returns None on success, or a human-readable reason it failed."""
+        path = cls.portable_settings_path()
+        if path is None:
+            return "The program's own folder could not be determined."
+        if os.path.exists(path):
+            return None
+        try:
+            cls._write_to(path)
+            return None
+        except (IOError, OSError) as error:
+            return str(error)
+
+    @classmethod
+    def make_not_portable(cls):
+        """The caller must confirm first: this deletes a file. Settings are copied
+        back to the profile before it goes, so switching off never loses a choice."""
+        path = cls.portable_settings_path()
+        if path is None or not os.path.exists(path):
+            return None
+        try:
+            profile = cls.profile_settings_path()
+            folder = os.path.dirname(profile)
+            if not os.path.isdir(folder):
+                os.makedirs(folder)
+            cls._write_to(profile)
+            os.remove(path)
+            return None
+        except (IOError, OSError) as error:
+            return str(error)
 
     @classmethod
     def load(cls):
@@ -346,6 +416,12 @@ class Theme(object):
         cls.custom_back = None
         cls.custom_text = None
         cls.preview_on = True
+        cls.font_family = ""
+        cls.font_size = 0
+        cls.preview_mode = 0
+        cls.word_wrap = True
+        cls.window_geometry = ""
+        cls.window_maximised = False
 
         try:
             path = cls.settings_path()
@@ -380,6 +456,34 @@ class Theme(object):
                 # Anything that is not "off" leaves it on, so a damaged value
                 # errs towards showing the pane rather than hiding it.
                 cls.preview_on = value.lower() != "off"
+            elif key == "fontfamily":
+                # Not validated here. A font that exists on the machine which wrote
+                # the file may be absent on this one - portable settings travel on a
+                # USB stick - so it is checked at the point of use instead.
+                cls.font_family = "" if value.lower() == "none" else value
+            elif key == "fontsize":
+                try:
+                    size = float(value)
+                    if 5 <= size <= 72:
+                        cls.font_size = size
+                except ValueError:
+                    pass
+            elif key == "previewmode":
+                try:
+                    mode = int(value)
+                    if 0 <= mode <= 2:
+                        cls.preview_mode = mode
+                except ValueError:
+                    pass
+            elif key == "wordwrap":
+                cls.word_wrap = value.lower() != "off"
+            elif key == "window":
+                # Tk's own "WxH+X+Y" form, stored verbatim. Validated on the way in
+                # so a damaged line cannot make the window unopenable.
+                if re.match(r"^\d+x\d+([+-]-?\d+[+-]-?\d+)?$", value):
+                    cls.window_geometry = value
+            elif key == "maximised":
+                cls.window_maximised = value.lower() == "on"
 
     @staticmethod
     def _colour_or_none(value):
@@ -391,22 +495,69 @@ class Theme(object):
             return None
 
     @classmethod
+    def _write_to(cls, path):
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("theme=%s\n" % cls.mode)
+            handle.write("preset=%s\n" % ("none" if cls.preset_name == cls.NO_PRESET
+                                          else cls.preset_name))
+            handle.write("zoom=%d\n" % cls.zoom)
+            handle.write("background=%s\n" % (cls.custom_back or "none"))
+            handle.write("text=%s\n" % (cls.custom_text or "none"))
+            handle.write("preview=%s\n" % ("on" if cls.preview_on else "off"))
+            handle.write("fontfamily=%s\n" % (cls.font_family or "none"))
+            handle.write("fontsize=%s\n" % cls.font_size)
+            handle.write("previewmode=%d\n" % cls.preview_mode)
+            handle.write("wordwrap=%s\n" % ("on" if cls.word_wrap else "off"))
+            handle.write("window=%s\n" % (cls.window_geometry or "none"))
+            handle.write("maximised=%s\n" % ("on" if cls.window_maximised else "off"))
+
+    @classmethod
     def save(cls):
         try:
             path = cls.settings_path()
             folder = os.path.dirname(path)
-            if not os.path.isdir(folder):
+            if folder and not os.path.isdir(folder):
                 os.makedirs(folder)
-            with open(path, "w", encoding="utf-8") as handle:
-                handle.write("theme=%s\n" % cls.mode)
-                handle.write("preset=%s\n" % ("none" if cls.preset_name == cls.NO_PRESET
-                                              else cls.preset_name))
-                handle.write("zoom=%d\n" % cls.zoom)
-                handle.write("background=%s\n" % (cls.custom_back or "none"))
-                handle.write("text=%s\n" % (cls.custom_text or "none"))
-                handle.write("preview=%s\n" % ("on" if cls.preview_on else "off"))
+            cls._write_to(path)
         except (IOError, OSError):
-            pass    # a read-only home directory must not stop the editor working
+            # A read-only home directory must not stop the editor working. If the
+            # portable file has become unwritable - a stick flipped to read-only
+            # mid-session - fall back rather than silently losing the settings.
+            try:
+                if cls.is_portable():
+                    profile = cls.profile_settings_path()
+                    folder = os.path.dirname(profile)
+                    if not os.path.isdir(folder):
+                        os.makedirs(folder)
+                    cls._write_to(profile)
+            except (IOError, OSError):
+                pass
+
+    @classmethod
+    def set_font(cls, family, size):
+        cls.font_family = family or ""
+        cls.font_size = size
+        cls.save()
+
+    @classmethod
+    def set_preview_mode(cls, mode):
+        if not 0 <= mode <= 2 or cls.preview_mode == mode:
+            return
+        cls.preview_mode = mode
+        cls.save()
+
+    @classmethod
+    def set_word_wrap(cls, wrap):
+        if cls.word_wrap == wrap:
+            return
+        cls.word_wrap = wrap
+        cls.save()
+
+    @classmethod
+    def set_window(cls, geometry, maximised):
+        cls.window_geometry = geometry or ""
+        cls.window_maximised = maximised
+        cls.save()
 
     @classmethod
     def set_mode(cls, mode):
@@ -1622,7 +1773,7 @@ class MiniPad(object):
         self.current = None
         self.preview_document = None   # the document the preview pane was drawn from
         self.preview_visible = False
-        self.word_wrap = True
+        self.word_wrap = Theme.word_wrap
         self.preview_job = None
         self.link_count = 0
         self.span_tags = set()
@@ -1632,15 +1783,37 @@ class MiniPad(object):
         #   jump     - clicking rendered text moves the editor caret to that line
         #   editable - the pane holds the Markdown source, styled in place, and
         #              typing in it edits the document
-        self.mode_var = tk.StringVar(value="readonly")
-        self.preview_mode = "readonly"
+        remembered_mode = self.PREVIEW_MODE_NAMES[Theme.preview_mode]
+        self.mode_var = tk.StringVar(value=remembered_mode)
+        self.preview_mode = remembered_mode
         self.syncing = False
 
         self.base_family = "monospace"
         self.base_size = 11
         self.preview_family = "sans-serif"
 
-        root.geometry("1100x700")
+        # A remembered font may have come from another machine - portable settings
+        # travel on a USB stick - so it is checked against this machine's families
+        # rather than trusted. Tk silently substitutes an unknown family, which
+        # would leave the user with a font they did not choose and no explanation.
+        if Theme.font_family:
+            try:
+                if Theme.font_family in tkfont.families(root):
+                    self.base_family = Theme.font_family
+            except tk.TclError:
+                pass
+        if Theme.font_size:
+            self.base_size = int(Theme.font_size)
+
+        # Only restore a geometry that still lands on a screen that exists.
+        # Unplugging a second monitor would otherwise reopen the window at
+        # coordinates nobody can reach, which looks like a failure to start.
+        root.geometry(self.usable_geometry(root, Theme.window_geometry) or "1100x700")
+        if Theme.window_maximised:
+            try:
+                root.state("zoomed")            # ignored by window managers that lack it
+            except tk.TclError:
+                pass
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         self.set_window_icon(root)
 
@@ -1933,12 +2106,14 @@ class MiniPad(object):
         bar.add_cascade(label="Markdown", menu=md_menu)
 
         format_menu = tk.Menu(bar, tearoff=0)
-        self.wrap_var = tk.BooleanVar(value=True)
+        self.wrap_var = tk.BooleanVar(value=Theme.word_wrap)
         format_menu.add_checkbutton(label="Word Wrap", variable=self.wrap_var,
                                     command=self.toggle_word_wrap)
         format_menu.add_command(label="Font...", command=self.choose_font)
         format_menu.add_separator()
         format_menu.add_command(label="Appearance...", command=self.show_appearance)
+        format_menu.add_separator()
+        format_menu.add_command(label="Portable Settings...", command=self.toggle_portable)
         format_menu.add_separator()
         format_menu.add_command(label="Zoom In", accelerator="Ctrl++",
                                 command=lambda: self.change_zoom(10))
@@ -2166,6 +2341,9 @@ class MiniPad(object):
         for document in list(self.documents):
             if not self.confirm_discard(document):
                 return
+        # Only once the close is certain. Saving geometry before the unsaved-changes
+        # prompt would record a position for a window the user then kept.
+        self.save_window_geometry()
         self.shutdown()
         self.root.destroy()
 
@@ -2249,6 +2427,106 @@ class MiniPad(object):
         self.word_wrap = bool(self.wrap_var.get())
         for document in self.documents:
             document.set_wrap(self.word_wrap)
+        Theme.set_word_wrap(self.word_wrap)
+
+    # Portable settings: on or off, with the consequences spelled out before
+    # anything happens. Switching off deletes a file, so it asks first - and it
+    # copies the settings back to the profile before deleting, so nothing is lost.
+    def toggle_portable(self):
+        if not Theme.is_portable():
+            if not messagebox.askyesno(
+                    "MiniPad - Portable Settings",
+                    "Keep MiniPad's settings in a file next to the program itself, "
+                    "rather than in your home directory?\n\n"
+                    "This is for running MiniPad from a USB stick, or on a machine "
+                    "where you would rather not leave anything behind.\n\n"
+                    "The file would be:\n" + str(Theme.portable_settings_path()),
+                    parent=self.root):
+                return
+            failure = Theme.make_portable()
+            if failure:
+                messagebox.showwarning(
+                    "MiniPad",
+                    "Portable settings could not be turned on.\n\n" + failure +
+                    "\n\nThis usually means the program is in a folder you cannot "
+                    "write to. Your settings are unchanged and are still being "
+                    "saved to your home directory.",
+                    parent=self.root)
+                return
+            messagebox.showinfo(
+                "MiniPad",
+                "Portable settings are on.\n\nSettings are now saved to:\n" +
+                Theme.settings_path() +
+                "\n\nMove the program and that file together and your preferences "
+                "travel with it. Deleting the file returns MiniPad to using your "
+                "home directory.",
+                parent=self.root)
+        else:
+            if not messagebox.askyesno(
+                    "MiniPad - Portable Settings",
+                    "Turn portable settings off?\n\nYour current settings will be "
+                    "copied back to your home directory first, and then this file "
+                    "will be deleted:\n" + str(Theme.portable_settings_path()),
+                    parent=self.root):
+                return
+            failure = Theme.make_not_portable()
+            if failure:
+                messagebox.showwarning("MiniPad",
+                                       "The file could not be removed.\n\n" + failure,
+                                       parent=self.root)
+                return
+            messagebox.showinfo(
+                "MiniPad",
+                "Portable settings are off. Settings are saved to:\n" + Theme.settings_path(),
+                parent=self.root)
+
+    @staticmethod
+    def usable_geometry(root, geometry):
+        """Return the saved geometry only if it lands on a screen that exists.
+
+        Tk has no per-monitor API, so this checks against the whole virtual desktop
+        rather than a specific display - enough to catch the real failure, which is
+        a window remembered at coordinates on a monitor that is no longer attached.
+        """
+        if not geometry:
+            return None
+        match = re.match(r"^(\d+)x(\d+)([+-])(-?\d+)([+-])(-?\d+)$", geometry)
+        if not match:
+            return geometry             # a plain "WxH" carries no position to check
+        width, height = int(match.group(1)), int(match.group(2))
+
+        # Tk's geometry grammar has two position forms and they mean opposite
+        # things. "+X" is measured from the left/top edge and may itself be
+        # negative, written "+-100". A leading "-" instead measures from the
+        # RIGHT/BOTTOM edge, which is on-screen by definition and needs no check.
+        if match.group(3) == "-" or match.group(5) == "-":
+            return geometry
+        x, y = int(match.group(4)), int(match.group(6))
+        try:
+            screen_width = root.winfo_screenwidth()
+            screen_height = root.winfo_screenheight()
+        except tk.TclError:
+            return None
+        # Intersects rather than contains: a window nudged partly off the edge is
+        # still perfectly usable and should not be thrown away.
+        if x + width < 0 or y + height < 0 or x > screen_width or y > screen_height:
+            return "%dx%d" % (width, height)        # keep the size, drop the position
+        return geometry
+
+    def save_window_geometry(self):
+        try:
+            maximised = self.root.state() == "zoomed"
+        except tk.TclError:
+            maximised = False
+        try:
+            # wm_geometry reports the screen size while zoomed, so a maximised
+            # window would otherwise remember a size it can never return to.
+            geometry = "" if maximised else self.root.winfo_geometry()
+        except tk.TclError:
+            return
+        if geometry and not re.match(r"^\d+x\d+", geometry):
+            return
+        Theme.set_window(geometry or Theme.window_geometry, maximised)
 
     def choose_font(self):
         dialog = tk.Toplevel(self.root)
@@ -2287,6 +2565,7 @@ class MiniPad(object):
                 # rather than compounding with it.
                 self.base_size = sizes[size_selection[0]]
             self.apply_theme()
+            Theme.set_font(self.base_family, self.base_size)
             dialog.destroy()
 
         buttons = tk.Frame(dialog)
@@ -2432,8 +2711,16 @@ class MiniPad(object):
             Theme.set_preview_on(on)
         self.update_mode_status()
 
+    # The settings file stores the mode as a number so both builds read the same
+    # file; the UI uses names because a radio button variable reads better as one.
+    PREVIEW_MODE_NAMES = ("readonly", "jump", "editable")
+
     def on_mode_change(self):
         self.preview_mode = self.mode_var.get()
+        try:
+            Theme.set_preview_mode(self.PREVIEW_MODE_NAMES.index(self.preview_mode))
+        except ValueError:
+            pass
         if not self.preview_visible:
             self.toggle_preview()   # picking a mode implies wanting the pane
         else:
@@ -2670,7 +2957,7 @@ class MiniPad(object):
                     self.insert(line + "\n", ("code_block",))
                 self.insert("\n")
             elif kind == "rule":
-                self.insert("─" * 60 + "\n\n", ("rule",))
+                self.insert("â”€" * 60 + "\n\n", ("rule",))
             elif kind == "quote":
                 self.render_quote(block["blocks"], depth)
             elif kind == "list":
@@ -2686,7 +2973,7 @@ class MiniPad(object):
     def render_quote(self, blocks, depth):
         for block in blocks:
             if block["type"] == "paragraph":
-                self.insert("▎ ", ("quote_mark",))
+                self.insert("â–Ž ", ("quote_mark",))
                 self.render_spans(block["spans"], extra=("quote",))
                 self.insert("\n\n")
             else:
@@ -2727,10 +3014,10 @@ class MiniPad(object):
                     parts.append(cell.center(width))
                 else:
                     parts.append(cell.ljust(width))
-            return "  " + " │ ".join(parts)
+            return "  " + " â”‚ ".join(parts)
 
         self.insert(format_row(header) + "\n", ("table",))
-        self.insert("  " + "─┼─".join("─" * width for width in widths) + "\n",
+        self.insert("  " + "â”€â”¼â”€".join("â”€" * width for width in widths) + "\n",
                     ("table",))
         for row in rows:
             self.insert(format_row(row) + "\n", ("table",))
@@ -3155,7 +3442,11 @@ class MiniPad(object):
             "  Zoom             %d%%" % Theme.zoom,
             "  Desktop prefers  " + ("dark" if Theme.system_prefers_dark() else "light")
                                   + " (asked of gsettings)",
+            "  Settings mode    " + ("Portable - kept beside the program"
+                                     if Theme.is_portable()
+                                     else "Normal - kept in your home directory"),
             "  Settings file    " + Theme.settings_path(),
+            "  Switch with      Format > Portable Settings...",
             "",
             "LINUX LIBRARIES USED",
             "  tkinter          UI toolkit binding (Debian/Ubuntu package python3-tk)",
