@@ -420,6 +420,11 @@ It re-renders about half a second after you stop typing, and keeps its scroll po
 it does not jump while you write. With several tabs open the pane is shared, and always
 shows whichever tab is in front.
 
+The pane carries a caption along its top reading **Live Preview**, followed by what it is
+currently doing — *updates as you type on the left*, *click any block to jump to its
+source*, or *editable, your changes go back to the text*. It changes with the mode, so the
+pane always explains itself.
+
 Choose how the pane behaves under **Markdown > Preview Mode**.
 
 ### Rendered, read-only
@@ -1021,6 +1026,10 @@ and machines where you would rather not leave anything behind. **Format > Portab
 Settings…** turns it on and off — switching off copies your settings back to your profile
 before removing the file, so nothing is lost. **About > Build & Libraries** shows which file
 is in use.
+
+**The preview pane is captioned.** It reads "Live Preview" followed by what the pane is
+currently doing, so the second copy of your text is explained rather than left to be guessed
+at.
 
 **Fixed:** the build report in About listed four source files when there are ten.
 

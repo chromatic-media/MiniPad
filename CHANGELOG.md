@@ -25,6 +25,12 @@ Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic)
   it off copies your settings back to your profile *before* deleting the file.
 - **About > Build & Libraries** now reports which settings file is in use, and whether
   portable mode is on.
+- **The preview pane is captioned.** Until now the second pane was unexplained: you type on
+  the left, the same words appear on the right, and nothing tells you why. The caption names
+  it and says what it is currently doing — *"updates as you type on the left"*, or *"click
+  any block to jump to its source"*, or *"editable, your changes go back to the text"*. The
+  last of those is the one that earns its place: in editable mode the pane accepts typing,
+  and a user who does not know that is going to be surprised either way.
 
 ### Changed
 

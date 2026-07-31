@@ -1832,6 +1832,15 @@ class MiniPad(object):
         self.panes.add(self.editor_host, stretch="always")
 
         self.preview_frame = tk.Frame(self.panes)
+
+        # A caption over the preview. Without it the second pane is unexplained:
+        # a new user types on the left, sees the same words appear on the right,
+        # and has no way to know why. The caption answers that, and naming the
+        # mode explains why the pane behaves as it does.
+        self.preview_caption = tk.Label(self.preview_frame, text="Live Preview",
+                                        anchor=tk.W, padx=8)
+        self.preview_caption.pack(side=tk.TOP, fill=tk.X)
+
         self.preview = tk.Text(self.preview_frame, wrap=tk.WORD, state=tk.DISABLED,
                                font=(self.preview_family, self.base_size),
                                padx=16, pady=12, relief=tk.FLAT,
@@ -2638,6 +2647,9 @@ class MiniPad(object):
 
         for label in (self.status, self.mode_status):
             label.configure(background=Theme.menu_back(), foreground=Theme.ui_dim())
+        caption = getattr(self, "preview_caption", None)
+        if caption is not None:
+            caption.configure(background=Theme.menu_back(), foreground=Theme.ui_dim())
         self.update_zoom_label()
 
         self.configure_preview_tags()
@@ -2737,6 +2749,22 @@ class MiniPad(object):
         else:
             text = "Preview: read-only"
         self.mode_status.configure(text=text)
+        self.update_preview_caption()
+
+    # The caption says what the pane IS, and then what it is currently DOING.
+    # The second half matters: in editable mode the pane accepts typing, and a
+    # user who does not know that will be surprised by it either way.
+    def update_preview_caption(self):
+        caption = getattr(self, "preview_caption", None)
+        if caption is None:
+            return
+        if self.preview_mode == "jump":
+            text = "Live Preview  -  click any block to jump to its source"
+        elif self.preview_mode == "editable":
+            text = "Live Preview  -  editable, your changes go back to the text"
+        else:
+            text = "Live Preview  -  updates as you type on the left"
+        caption.configure(text=text)
 
     def on_preview_click(self, event):
         """Click-to-jump: move the editor caret to the clicked block's source line."""

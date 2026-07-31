@@ -36,6 +36,7 @@ public class MainForm : Form
     private ToolStripMenuItem wordWrapItem;
     private ToolStripMenuItem previewItem;
     private ToolStripMenuItem portableItem;
+    private Label previewCaption;
     private ToolStripMenuItem[] modeItems;
 
     private ToolStripStatusLabel zoomLabel;
@@ -124,11 +125,26 @@ public class MainForm : Form
         preview.Navigating += new WebBrowserNavigatingEventHandler(OnPreviewNavigating);
         preview.DocumentCompleted += new WebBrowserDocumentCompletedEventHandler(OnPreviewCompleted);
 
+        // A caption over the preview. Without it the second pane is unexplained:
+        // a new user types on the left, sees the same words appear on the right,
+        // and has no way to know why. The caption answers that in two words, and
+        // naming the mode explains why the pane behaves as it does.
+        previewCaption = new Label();
+        previewCaption.Dock = DockStyle.Top;
+        previewCaption.AutoSize = false;
+        previewCaption.Height = 22;
+        previewCaption.TextAlign = ContentAlignment.MiddleLeft;
+        previewCaption.Padding = new Padding(8, 0, 0, 0);
+        previewCaption.Text = "Live Preview";
+
         split = new SplitContainer();
         split.Dock = DockStyle.Fill;
         split.Orientation = Orientation.Vertical;
         split.Panel1.Controls.Add(editorHost);
+        // The filled control goes in first, so the caption can claim the top edge
+        // from what is left rather than being painted over.
         split.Panel2.Controls.Add(preview);
+        split.Panel2.Controls.Add(previewCaption);
         split.Panel2Collapsed = true;
 
         previewTimer = new Timer();
@@ -857,6 +873,21 @@ public class MainForm : Form
             modeLabel.Text = "Preview: editable";
         else
             modeLabel.Text = "Preview: read-only";
+        UpdatePreviewCaption();
+    }
+
+    // The caption says what the pane IS, and then what it is currently DOING.
+    // The second half matters: in editable mode the pane accepts typing, and a
+    // user who does not know that will be surprised by it either way.
+    private void UpdatePreviewCaption()
+    {
+        if (previewCaption == null) return;
+        if (previewMode == PreviewMode.ClickToJump)
+            previewCaption.Text = "Live Preview  -  click any block to jump to its source";
+        else if (previewMode == PreviewMode.Editable)
+            previewCaption.Text = "Live Preview  -  editable, your changes go back to the text";
+        else
+            previewCaption.Text = "Live Preview  -  updates as you type on the left";
     }
 
     // Re-applied after every render, because each render builds a new document.
@@ -1114,6 +1145,8 @@ public class MainForm : Form
         tabs.Invalidate();          // the strip paints itself straight from Theme
         positionLabel.ForeColor = Theme.UiDim;
         modeLabel.ForeColor = Theme.UiDim;
+        previewCaption.BackColor = Theme.WindowBack;
+        previewCaption.ForeColor = Theme.UiDim;
         UpdateZoomLabel();
 
         RenderPreview();   // the preview stylesheet changes with the theme
