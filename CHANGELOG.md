@@ -1,12 +1,78 @@
 # MiniPad Changelog
 
 Every release, newest first. This file is the record of what changed between versions; it
-is mirrored in section 22 of `MANUAL.md`, so the same information is searchable inside the
+is mirrored in section 23 of `MANUAL.md`, so the same information is searchable inside the
 program under **About > Help** (or **F1**).
 
 Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic).
 
 ---
+
+## 1.10 — 8/6/26
+
+### Added
+
+- **A Donate tab, last in the About dialog, for FaleOfaz** — the DSPD-certified residential
+  care provider in West Valley City, Utah that MiniPad's designer supports. It carries their
+  logo, their own words about who they are and why, their contact details, and two buttons:
+  one opens `faleofaz.org`, the other their Venmo. Clicking the logo opens their site too.
+  Their words and their mark are used with permission, asked for and granted before any of
+  this was written.
+
+  **It cannot interrupt anyone.** No splash, no prompt, no first-run notice, nothing on
+  startup — if you never open About, you never see it. That was the whole design constraint:
+  a feature has to cost nothing to the people who do not use it, and an appeal that appears
+  unbidden would fail that test badly. It is the same rule that got tooltips rejected in
+  `DECISIONS.md`, applied in the other direction.
+
+  **MiniPad still makes no network connections of its own.** Both buttons hand the address to
+  the desktop's browser, exactly as clicking a link in the preview pane already did. Nothing
+  is fetched, sent or reported, and the tab behaves identically offline.
+
+  **On receipts, because getting this wrong would matter to someone.** FaleOfaz is a
+  registered 501(c)(3), and the tab says so — but it also says that a Venmo *business* profile
+  issues no giving receipt automatically, since only Venmo's verified *Charity* profiles do.
+  Promising documentation that does not arrive would be worse than saying nothing.
+
+- **Room for a personal note at the foot of the tab.** Both builds carry a deliberately empty
+  string (`FaleOfaz.PersonalNote`, `FALEOFAZ_PERSONAL_NOTE`). Put a sentence in it and it
+  appears, styled and set apart, with no other change anywhere. Leave it empty and **nothing**
+  is drawn — no rule, no gap, no orphaned heading.
+
+### Changed
+
+- The logo is shown unaltered on a white card rather than being inverted for the dark themes.
+  Inverting is the usual trick for black line art, and it was rejected here: a registered mark
+  belonging to someone else should not be recoloured to suit a colour scheme.
+- Corrected the executable size quoted in `README.md` (267 KB) and `MANUAL.md` (242 KB). Both
+  were stale, and they disagreed with each other. It is now 305 KB, logo included.
+- The manual gained section 22, *Supporting FaleOfaz*; version history moved to section 23.
+
+### Fixed
+
+- Two layout defects in the Linux Donate tab, both found by screenshotting the running program
+  and invisible to every logic check that passed over them: the mission quote broke
+  mid-sentence, because a hard newline that is correct in a fixed Windows label is a bug inside
+  a wrapping Tk text widget; and the note beside the buttons was quietly clipped at the dialog
+  edge, since nothing about a Tk label reports that its own text did not fit.
+
+- **Two Windows-only layout bugs, where the buttons were drawn on top of the story text.** The
+  screenshot that found the Linux faults could not have found these — the two builds share no
+  layout code — so the Windows tab was measured instead, by loading the built assembly,
+  constructing the dialog without ever showing it, and reading every control's real bounds.
+  Both causes are worth knowing because neither produces an error of any kind:
+
+  - **`Label.PreferredHeight` is the height of a *single line* of text.** Advancing a layout by
+    it past a multi-line label under-measures by however many lines there are. The story block
+    is 324px tall; `PreferredHeight` reported roughly 250.
+  - **An AutoSize label measures itself with the font it holds at that instant.** A label that
+    has not yet been added to its parent still has the WinForms default font, not this dialog's
+    Segoe UI 9 — so it reports one size, silently grows when it inherits, and leaves the
+    position already computed from the smaller figure. Over fifteen lines the accumulated drift
+    was enough to put the buttons through the middle of the paragraph.
+
+  Positions now come from each control's actual `Bottom`, and every label on the page is given
+  an explicit font so measurement never depends on parenting order.
 
 ## 1.09 — 7/31/26
 

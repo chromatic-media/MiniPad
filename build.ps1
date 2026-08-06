@@ -25,6 +25,7 @@ try {
     & $csc /nologo /target:winexe /optimize+ /out:MiniPad.exe /win32icon:MiniPad.ico `
         /resource:MANUAL.md,MiniPad.MANUAL.md `
         /resource:LICENSE.txt,MiniPad.LICENSE.txt `
+        /resource:faleofaz-logo.png,MiniPad.faleofaz-logo.png `
         /reference:System.dll `
         /reference:System.Drawing.dll `
         /reference:System.Windows.Forms.dll `

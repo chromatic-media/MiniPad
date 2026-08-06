@@ -6,7 +6,7 @@ It opens and saves ordinary `.txt` and `.md` files, and it never changes anythin
 file that you did not change yourself. No network access, no telemetry, no installer, and
 no third-party libraries — it calls only what the operating system already provides.
 
-**Version 1.09**
+**Version 1.10**
 
 ---
 
@@ -14,7 +14,7 @@ no third-party libraries — it calls only what the operating system already pro
 
 | Build | File | Requires |
 |---|---|---|
-| **Windows** | `MiniPad.exe` | Nothing — a self-contained 267 KB executable (.NET Framework 4, built into Windows 8 and newer) |
+| **Windows** | `MiniPad.exe` | Nothing — a self-contained 305 KB executable (.NET Framework 4, built into Windows 8 and newer) |
 | **Linux** | `minipad.py` | Python 3 and `python3-tk` |
 
 Both read and write the same files, render the same Markdown, export identical HTML, and
@@ -108,7 +108,7 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1
 
 | File | What it is |
 |---|---|
-| [`MANUAL.md`](MANUAL.md) | The full owner's manual — 22 sections, also readable in-program with `F1` |
+| [`MANUAL.md`](MANUAL.md) | The full owner's manual — 23 sections, also readable in-program with `F1` |
 | [`CHANGELOG.md`](CHANGELOG.md) | Version history |
 | [`DECISIONS.md`](DECISIONS.md) | Ideas considered and deliberately **not** built, and why |
 | [`LICENSE.txt`](LICENSE.txt) | Licence and terms of use |

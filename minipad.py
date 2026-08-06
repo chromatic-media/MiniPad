@@ -31,12 +31,12 @@ from tkinter import messagebox
 from tkinter import ttk
 
 APP_NAME = "MiniPad"
-VERSION = "1.09"
+VERSION = "1.10"
 
 # The editor and the preview share this top inset so their first lines sit at
 # the same height. Change it and both panes move together.
 PREVIEW_PAD_Y = 12
-RELEASE_DATE = "7/31/26"
+RELEASE_DATE = "8/6/26"
 DESIGNER = "Tim Broussard"
 AUTHOR = "Legion"
 
@@ -3280,11 +3280,13 @@ class MiniPad(object):
         license_page = tk.Frame(notebook)
         build_page = tk.Frame(notebook)
         bunnies_page = tk.Frame(notebook)
+        donate_page = tk.Frame(notebook)
         notebook.add(about_page, text="About")
         notebook.add(help_page, text="Help")
         notebook.add(license_page, text="License")
         notebook.add(build_page, text="Build & Libraries")
         notebook.add(bunnies_page, text="Bunnies")
+        notebook.add(donate_page, text="Donate")
 
         # --- About ---
         header = tk.Frame(about_page, padx=18, pady=14)
@@ -3333,6 +3335,9 @@ class MiniPad(object):
         # --- Bunnies ---
         self.build_bunnies_page(bunnies_page)
 
+        # --- Donate ---
+        self.build_donate_page(donate_page)
+
         tk.Button(dialog, text="OK", width=10, command=dialog.destroy).pack(
             side=tk.RIGHT, padx=12, pady=(0, 12))
 
@@ -3371,6 +3376,105 @@ class MiniPad(object):
                   command=self.copy_license).pack(side=tk.LEFT)
         tk.Button(actions, text="Save a copy...",
                   command=self.save_license).pack(side=tk.LEFT, padx=6)
+
+    def build_donate_page(self, page):
+        """FaleOfaz.
+
+        Shaped like the License tab - a scrolling Text widget - because the
+        content is taller than the dialog and would otherwise be cut off with no
+        indication that anything was missing.
+        """
+        wrapper = tk.Frame(page, padx=12, pady=10)
+        wrapper.pack(fill=tk.BOTH, expand=True)
+
+        body = tk.Frame(wrapper)
+        body.pack(fill=tk.BOTH, expand=True)
+        text = tk.Text(body, wrap=tk.WORD, relief=tk.SUNKEN, borderwidth=1,
+                       padx=14, pady=12, cursor="arrow",
+                       font=("sans-serif", Theme.scale_font(10)))
+        scroll = tk.Scrollbar(body, command=text.yview)
+        text.configure(yscrollcommand=scroll.set)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        dim = Theme.ui_dim()
+        text.tag_configure("logoline", justify=tk.CENTER, spacing1=2, spacing3=14)
+        text.tag_configure("h", font=("sans-serif", Theme.scale_font(16), "bold"),
+                           spacing3=4)
+        text.tag_configure("tagline", font=("sans-serif", Theme.scale_font(10), "italic"),
+                           spacing3=2)
+        text.tag_configure("dim", foreground=dim, spacing3=10)
+        text.tag_configure("quote", font=("sans-serif", Theme.scale_font(11), "italic"),
+                           spacing3=12, lmargin1=6, lmargin2=6)
+        text.tag_configure("pull", font=("sans-serif", Theme.scale_font(11), "italic"),
+                           justify=tk.CENTER, spacing1=6, spacing3=14,
+                           lmargin1=30, lmargin2=30, rmargin=30)
+        text.tag_configure("para", spacing1=1, spacing3=12)
+        text.tag_configure("mono", font=("monospace", Theme.scale_font(9)), spacing3=12)
+        text.tag_configure("note", font=("sans-serif", Theme.scale_font(10), "italic"),
+                           spacing1=8, spacing3=4)
+
+        # The logo travels as base64 PNG rather than a file beside the program:
+        # minipad.py ships as a single file, so a missing image must not be
+        # possible. Tk discards a PhotoImage the instant nothing refers to it,
+        # so the widget is given the only surviving reference on purpose.
+        try:
+            text._minipad_logo = tk.PhotoImage(data=FALEOFAZ_LOGO_PNG)
+            mark = text.index("end-1c")
+            text.image_create("end", image=text._minipad_logo)
+            text.insert("end", "\n")
+            text.tag_add("logoline", mark, "end-1c")
+            text.tag_bind("logoline", "<Button-1>",
+                          lambda event: open_in_browser(FALEOFAZ_SITE))
+            text.tag_bind("logoline", "<Enter>",
+                          lambda event: text.configure(cursor="hand2"))
+            text.tag_bind("logoline", "<Leave>",
+                          lambda event: text.configure(cursor="arrow"))
+        except tk.TclError:
+            # Tk older than 8.6 cannot decode PNG. The words matter more than the
+            # picture, so carry on without it rather than losing the whole tab.
+            pass
+
+        text.insert("end", FALEOFAZ_NAME + "\n", "h")
+        text.insert("end", FALEOFAZ_TAGLINE + "\n", "tagline")
+        text.insert("end", "DSPD-certified residential care - " + FALEOFAZ_WHERE + "\n",
+                    "dim")
+        text.insert("end", FALEOFAZ_MISSION + "\n", "quote")
+        text.insert("end", FALEOFAZ_STORY + "\n", "para")
+        text.insert("end", FALEOFAZ_PULLQUOTE + "\n", "pull")
+        # No trailing blank lines: the "para" tag already carries spacing3, and
+        # doubling the two produced a visibly over-large gap.
+        text.insert("end", FALEOFAZ_STORY2 + "\n", "para")
+        text.insert("end", FALEOFAZ_STATUS + "\n" + FALEOFAZ_RECEIPTS + "\n", "para")
+        text.insert("end",
+                    "Phone      " + FALEOFAZ_PHONE + "\n"
+                    "Email      " + FALEOFAZ_EMAIL + "\n"
+                    "Instagram  " + FALEOFAZ_INSTAGRAM + "\n",
+                    "mono")
+
+        # Only drawn when there is something to draw. An empty personal note must
+        # leave no trace at all - no rule, no gap, no heading.
+        if FALEOFAZ_PERSONAL_NOTE:
+            text.insert("end", "\n" + ("_" * 58) + "\n", "dim")
+            text.insert("end", FALEOFAZ_PERSONAL_NOTE + "\n", "note")
+            text.insert("end", "- " + DESIGNER + "\n", "dim")
+
+        text.insert("end", "\n" + FALEOFAZ_WHY + "\n", "dim")
+        text.configure(state=tk.DISABLED)
+
+        actions = tk.Frame(wrapper)
+        actions.pack(fill=tk.X, pady=(8, 0))
+        tk.Button(actions, text="Visit " + FALEOFAZ_SITE_SHORT,
+                  command=lambda: open_in_browser(FALEOFAZ_SITE)).pack(side=tk.LEFT)
+        tk.Button(actions, text="Donate with Venmo",
+                  command=lambda: open_in_browser(FALEOFAZ_VENMO)).pack(side=tk.LEFT,
+                                                                       padx=6)
+        # Short on purpose. The longer version of this sentence was clipped at the
+        # dialog's right edge - visible only in a screenshot, since nothing about
+        # the widget reports that its own text did not fit. The full point ("MiniPad
+        # never connects to anything itself") lives in the manual instead.
+        ink_role(tk.Label(actions, text="Both open in your own browser.",
+                          anchor="w"), "dim").pack(side=tk.LEFT, padx=(10, 0))
 
     def copy_license(self):
         self.root.clipboard_clear()
@@ -4000,6 +4104,262 @@ def display_server():
     if os.environ.get("DISPLAY"):
         return "X11 (" + os.environ["DISPLAY"] + ")"
     return "(none detected)"
+
+
+# ---------------------------------------------------------------------------
+# FaleOfaz - the assisted-living provider MiniPad's designer supports.
+#
+# Their words below are quoted from faleofaz.org, with the owners' permission -
+# asked for and given before any of this was written.
+#
+# These mirror the FaleOfaz class in About.cs. THE TWO BUILDS MUST STAY IN STEP:
+# change the wording here and change it there in the same commit, or Windows and
+# Linux users read different things about someone else's charity.
+# ---------------------------------------------------------------------------
+FALEOFAZ_NAME = "FaleOfaz"
+FALEOFAZ_TAGLINE = "Empowering Independence, One Life at a Time"
+FALEOFAZ_SITE = "https://faleofaz.org/"
+FALEOFAZ_SITE_SHORT = "faleofaz.org"
+FALEOFAZ_VENMO = "https://www.venmo.com/u/faleofaz"
+FALEOFAZ_PHONE = "801-317-5454"
+FALEOFAZ_EMAIL = "faleofaz@utfaleofaz.org"
+FALEOFAZ_INSTAGRAM = "@faleofaz_llc"
+FALEOFAZ_WHERE = "West Valley City, Utah - serving Salt Lake County"
+
+# Kept on its own line, and worded flatly, because a claim about tax treatment
+# inside software that other people redistribute has to be exactly right. Do not
+# embellish it. If their status is ever stated differently, this is the single
+# string to change (and its twin in About.cs).
+FALEOFAZ_STATUS = "FaleOfaz is a registered 501(c)(3) nonprofit."
+
+# Venmo issues giving records only for verified Charity profiles, not ordinary
+# business profiles - so promising a receipt here would be wrong.
+#
+# NOTE ON LINE BREAKS, and why these differ from About.cs: the Windows build
+# paints these into fixed Labels, which do not wrap, so its copies carry hard
+# breaks. Here they go into a wrap=WORD Text widget that breaks them to fit
+# whatever width the dialog is. A hard newline in this build is therefore a bug,
+# not a formatting choice - it forces a break mid-sentence and adds paragraph
+# spacing in the middle of a quote. (Caught by screenshotting the tab, which is
+# the only thing that can see it.) THE WORDS must match About.cs; the whitespace
+# deliberately does not.
+FALEOFAZ_RECEIPTS = (
+    "A Venmo business profile does not issue a giving receipt automatically. "
+    "If you need one for tax purposes, ask FaleOfaz directly."
+)
+
+FALEOFAZ_MISSION = (
+    "\"At FaleOfaz, our mission has always been rooted in one thing - "
+    "genuine care for the individuals and families we serve.\""
+)
+
+FALEOFAZ_STORY = (
+    "FaleOfaz was founded by three brothers - Jose Fesili, Legrand Z Wolfgramm, "
+    "and Manisela Wolfgramm - who grew up in West Valley City, Utah. Rooted in "
+    "faith, family, and community, they built FaleOfaz to be a place where Salt "
+    "Lake County residents with disabilities are truly seen, celebrated, and "
+    "supported.\n"
+    "They believe every person - regardless of ability - is created with purpose "
+    "and deserves dignity, love, and meaningful experiences every single day:"
+)
+
+FALEOFAZ_PULLQUOTE = (
+    "\"They are not less than - they are exactly who they were meant to be.\""
+)
+
+FALEOFAZ_STORY2 = (
+    "Certified by Utah's Office of Licensing, FaleOfaz holds both Group Home and "
+    "Licensed Home certification, caring for up to five residents in a real home "
+    "with 24/7 support. Alongside that they provide individual and group day "
+    "supports, transportation, extended living supports, and personal budget "
+    "assistance - for people with disabilities, autism, and brain injuries.\n"
+    "From Disney trips to Special Olympics swim meets, the point is not only "
+    "care. It is a life with things in it worth remembering."
+)
+
+FALEOFAZ_WHY = (
+    "MiniPad is free and always will be. Nothing here is asked of you - this tab "
+    "is an invitation, not a request."
+)
+
+# ROOM AT THE BOTTOM - deliberately empty.
+#
+# Put a sentence here and it appears at the foot of the Donate tab, styled and
+# set apart, with no other change needed anywhere. Leave it as "" and nothing is
+# drawn at all - no rule, no gap, no empty heading.
+#
+# The Windows build carries its own copy of this string. Keep the two in step.
+FALEOFAZ_PERSONAL_NOTE = ""
+
+
+def open_in_browser(url):
+    """Hand a URL to the desktop's own browser.
+
+    MiniPad never fetches anything itself. It asks the desktop to open the
+    address, which is why the Donate tab adds no network code to the program.
+    """
+    try:
+        webbrowser.open(url)
+    except Exception as exc:                                    # noqa: BLE001
+        messagebox.showwarning(APP_NAME, "Could not open:\n%s\n\n%s" % (url, exc))
+
+
+FALEOFAZ_LOGO_PNG = (
+    "iVBORw0KGgoAAAANSUhEUgAAAWgAAADQCAYAAAAqC/t5AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAA"
+    "DsMAAA7DAcdvqGQAACrSSURBVHhe7Z0HtCRFFYbJLCA5I7DknOMiOeccBVyQvMQlZ0GygIAgmVUyLDnpSlxgyeyCoEQBXXIO"
+    "AoogtOerc+rZ7/b0vO6Z7unqef93zj3ivp7pmp6ev6tu3TDODz/88MYPP/zwqUwmk8mCsjfG+eGHH76KhBBCBAXajEB/av8g"
+    "hBCiWtBmCbQQQgSIBFoIIQJFAi2EEIEigRZCiECRQAshRKBIoIUQIlAk0EIIESgSaCGECBQJtBBCBIoEWgghAkUCLYQQgSKB"
+    "FkKIQJFACyFEoEighRAiUCTQQggRKBJoIYQIFAm0EEIEigRaCCECRQIthBCBIoEWQohAkUALIUSgSKCFECJQJNBCCBEoEmhR"
+    "e6699troV7/6VfTNN9/YPwlRayTQoraMGTMm2nDDDaNxxhnH2WKLLRYNHz7cHiZEbZFAi9rx2WefRYcffng08cQT94hz3Dbb"
+    "bLPo+eefty8TonZIoEWtuPrqq6N55pknIcrWBgwYEB1zzDHRF198Yd9CiNoggRa1YPTo0dG6666bEOK+bL755ouuv/56+3ZC"
+    "1AIJtAiad999N9p///2jiSaaKCG+eWz99dePHnvsMfv2QgSNBFoEyyWXXBL9+Mc/TohtqzbhhBNGBx10UPTxxx/bUwkRJBJo"
+    "ERyPPvpotMoqqyQEtigbOHBgNGzYMHtaIYJDAi2CAXfGkCFDovHGGy8hqmXY6quvHj3xxBN2GEIEgwRaVM53330XXXTRRdEs"
+    "s8ySENGybYIJJoiGDh0avfPOO3ZYQlSOBFpUyr333hstu+yyCeHstM0444zROeecww/CDlGIypBAi0p44403op133jkhlFXb"
+    "SiutFD3wwAN2uEJUggRadJRvv/02Ov3006NpppkmIY4h2S677BKNHTvWDl+IjiKBFh3jnnvuiZZZZpmEGIZq0047bXTuuec6"
+    "H7kQVSCBFqXzwgsvRFtttVVCAOtiSy65ZHT77bfbjyVE6UigRWl8/fXX0UknnRT96Ec/SoheHW277baLXnnlFfsxhSgNCbQo"
+    "hZtuuilaeOGFEyJXRxt33HF7/nuqqaaKTj75ZPfwEaJsJNCiUF588cVo0003TYhct9miiy4qt4coHQm0KIRPP/00OuKII6Ip"
+    "ppgiIWbdbKo9LcpEAi3ahhrNc889d0K8+otNMskk7uH0+eef20sjRFtIoEXL0HKKMp5WsPqTxf3T1J7mYSVEUUigRW4o13nw"
+    "wQe78p1WsKowangsvvjiiX+vyuiT+Mwzz9jLJkRuJNAiF9RonmuuuRKiVIUxe91jjz2iN998M/rPf/7jOnvPMMMMieOqMPol"
+    "HnLIIdF7771nL6EQmZFAi0w88sgj0WqrrZYQoqqMmhkPP/ywHaYT65BqfNBw4LLLLrPDFCITEmjRFGo077333h2r0dyXzTzz"
+    "zNH5558fff/993aovRg5cmQ0aNCgxOurMmpP04hAiDxIoEVDKLt58cUXRzPNNFNCbKowHhD77rtvLpcBNTTOO+88V0rUvl8V"
+    "xmfgYcdDT4gsSKBFgoceeihaeeWVEwJTldH+ChdLq7z11lvRbrvtFswqYNZZZ3Vuj//+9792qEL0QgIteqBG84477pgQlKps"
+    "zjnnjK666io7zJbBxRCSH3355ZeP7rvvPjtMIXqQQAtXo/nXv/51NP300ydEpAojfO+www4rrfs2s9fZZpstcd6qjE1NNjeF"
+    "sEig+zkjRoyIll566YRoVGUkvowePdoOs3AQ/4MOOsj1JLRjqMKmm2666Mwzz3QPSyE8EugociUk6e785JNPlmqco6pylbbX"
+    "Hu6MwYMHJ4SiKiNVvIosPL6TtdZaKzGeqoz+jHfffbcdpuinSKCjKFpvvfUSP5SybKONNrKn7yhfffVVdPzxx0dTTz11YmxV"
+    "2GSTTRb98pe/jL744gs71I5y3XXXRQsssEBifFXZtttuG7388st2mKKfIYGOoo7Wk9hkk03s6TvGLbfcElSN5i222MJ1WwkF"
+    "ih3h+yYL0I61CqMyIA0PVHu6/yKBjiJXO8H+OMoyylN2mr/+9a9BtZxabLHFottuu80OMxgoHxpSTWseqjxcRf9DAt3FAo07"
+    "47jjjnNuBDuOKozWVyeccEJtZoQ333xzNP/88yc+R1W25ZZbRi+99JIdpuhiJNBdKtDXXHNNtOCCCybOX5XttNNOrttK3fjs"
+    "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"
+)
 
 
 def main():

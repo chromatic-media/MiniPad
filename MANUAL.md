@@ -1,6 +1,6 @@
 # MiniPad Owner's Manual
 
-**Version 1.09** — 7/31/26
+**Version 1.10** — 8/6/26
 Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic).
 
 Open this file in MiniPad and press **F9** to read it as rendered Markdown, or press
@@ -33,7 +33,8 @@ Open this file in MiniPad and press **F9** to read it as rendered Markdown, or p
 19. Known limitations, and why
 20. How this was tested
 21. License and terms of use
-22. Version history
+22. Supporting FaleOfaz
+23. Version history
 
 ---
 
@@ -47,7 +48,7 @@ It ships as two programs built from one design:
 
 | Build | File | Needs |
 |---|---|---|
-| Windows | `MiniPad.exe` | Nothing — one self-contained 242 KB executable |
+| Windows | `MiniPad.exe` | Nothing — one self-contained 305 KB executable |
 | Linux | `minipad.py` | Python 3 and `python3-tk` |
 
 Both read and write the same files, render the same Markdown, and export identical HTML.
@@ -705,7 +706,7 @@ all of it on the clipboard, which is the quickest way to tell someone what you a
 | `MiniPad.ico` | The icon, if you want it for a shortcut. The exe already contains it |
 | `MANUAL.md` | This manual. Also compiled into the exe, see About > Help |
 | `LICENSE.txt` | License and terms of use. Also compiled into the exe, see About > License |
-| `CHANGELOG.md` | What changed between versions. Mirrored in section 22 |
+| `CHANGELOG.md` | What changed between versions. Mirrored in section 23 |
 | `sample.md` | A short file exercising every Markdown feature |
 | `build.ps1` | Rebuilds the Windows executable |
 | `*.cs` | The Windows source, ten files |
@@ -1014,10 +1015,78 @@ look it over first.
 
 ---
 
-## 22. Version history
+## 22. Supporting FaleOfaz
+
+**About > Donate** is the last tab in the About dialog. It is there because MiniPad's designer
+asked for it, and it is the only part of the program that mentions anything outside MiniPad.
+
+FaleOfaz is a DSPD-certified residential care provider in West Valley City, Utah, serving Salt
+Lake County residents with disabilities, autism, and brain injuries. Their story, their words
+and their contact details are on the tab, along with two buttons: one opens `faleofaz.org`, the
+other opens their Venmo. Their logo is on the tab too, and clicking it opens their site.
+
+**What the tab does not do.** It does not appear on startup, it never interrupts you, and
+nothing about it is required. If you never open the About dialog you will never see it. That is
+deliberate: MiniPad's whole design rule is that a feature must cost nothing to the people who
+do not use it, and an appeal that pops up unbidden would break that rule badly.
+
+**MiniPad still makes no network connections of its own.** Both buttons hand the address to
+your desktop's browser — the same thing that already happens when you click a link in the
+preview pane. Nothing is fetched, sent, or reported, and the tab works identically offline
+apart from the browser having nothing to show.
+
+**On donations and receipts.** FaleOfaz is a registered 501(c)(3) nonprofit. The tab says so,
+and says one more thing worth repeating here: a Venmo *business* profile does not issue a
+giving receipt automatically — only Venmo's verified *Charity* profiles do. If you need
+documentation for tax purposes, ask FaleOfaz directly rather than assuming Venmo has produced
+it for you.
+
+**Their words are quoted with permission**, asked for and granted before the tab was built.
+The logo is used with permission and is shown unaltered, on a white card so that it stays
+legible in the dark themes rather than being inverted — a registered mark should not be
+recoloured to suit a colour scheme.
+
+**For maintainers.** Everything factual lives in named constants — the `FaleOfaz` class in
+`About.cs` and the `FALEOFAZ_*` constants in `minipad.py` — so a detail that changes on their
+end is a one-line edit in two files rather than a hunt through layout code. Both builds carry a
+`PersonalNote` / `FALEOFAZ_PERSONAL_NOTE` string that is deliberately empty; put a sentence in
+it and it appears at the foot of the tab, set apart and styled, with no other change needed.
+Leave it empty and nothing is drawn at all — no rule, no gap, no heading. **The wording must
+match between the two builds**; only the line breaks legitimately differ, because Windows
+paints into fixed labels that do not wrap and Linux uses a wrapping text widget.
+
+---
+
+## 23. Version history
 
 Also kept as `CHANGELOG.md` beside the program. There is no 1.02 — the version went from
 1.01 to 1.03 at the owner's request.
+
+### 1.10 — 8/6/26
+
+**A Donate tab, last in the About dialog, for FaleOfaz** — the DSPD-certified residential care
+provider in West Valley City, Utah that MiniPad's designer supports. Their logo, their own
+words, their contact details, and two buttons: one opens `faleofaz.org`, the other their
+Venmo. Their words and their mark are used with permission, asked for and granted before any
+of it was written. Section 22 covers the tab in full.
+
+**It cannot interrupt anyone.** No splash, no prompt, no first-run notice, nothing on startup.
+If you never open About, you never see it — a feature has to cost nothing to the people who do
+not use it, and an appeal that appears unbidden would fail that test badly.
+
+**MiniPad still makes no network connections of its own.** Both buttons hand the address to
+your desktop's browser, exactly as clicking a link in the preview already did.
+
+The tab also notes something easy to get wrong: FaleOfaz is a registered 501(c)(3), but a
+Venmo *business* profile issues no giving receipt automatically — only Venmo's verified
+*Charity* profiles do. Ask FaleOfaz directly if you need documentation.
+
+Both builds carry a deliberately empty personal-note string. Put a sentence in it and it
+appears at the foot of the tab; leave it empty and nothing at all is drawn.
+
+Two Linux layout defects were found and fixed by photographing the running program rather than
+by testing it: a quote that broke mid-sentence, and a caption silently clipped at the dialog
+edge. Neither was visible to any logic check.
 
 ### 1.09 — 7/31/26
 
