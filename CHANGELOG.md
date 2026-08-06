@@ -53,7 +53,7 @@ Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic)
   Inverting is the usual trick for black line art, and it was rejected here: a registered mark
   belonging to someone else should not be recoloured to suit a colour scheme.
 - Corrected the executable size quoted in `README.md` (267 KB) and `MANUAL.md` (242 KB). Both
-  were stale, and they disagreed with each other. It is now 305 KB, logo included.
+  were stale, and they disagreed with each other. It is now 306 KB, logo included.
 - The manual gained section 22, *Supporting FaleOfaz*; version history moved to section 23.
 
 ### Fixed

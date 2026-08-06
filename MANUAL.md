@@ -48,7 +48,7 @@ It ships as two programs built from one design:
 
 | Build | File | Needs |
 |---|---|---|
-| Windows | `MiniPad.exe` | Nothing — one self-contained 305 KB executable |
+| Windows | `MiniPad.exe` | Nothing — one self-contained 306 KB executable |
 | Linux | `minipad.py` | Python 3 and `python3-tk` |
 
 Both read and write the same files, render the same Markdown, and export identical HTML.
