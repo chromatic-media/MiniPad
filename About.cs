@@ -75,17 +75,21 @@ public static class FaleOfaz
     public const string Instagram = "@faleofaz_llc";
     public const string Where = "West Valley City, Utah - serving Salt Lake County";
 
-    // Kept on its own line, and worded flatly, because a claim about tax
-    // treatment inside software that other people redistribute has to be
-    // exactly right. Do not embellish it. If their status is ever stated
-    // differently, this is the single string to change.
-    public const string Status = "FaleOfaz is a registered 501(c)(3) nonprofit.";
+    // DELIBERATELY MAKES NO CLAIM about tax status, registration, or how gifts
+    // are used. Those are FaleOfaz's own facts to state: they can change, this
+    // program gets redistributed, and a detail that is subtly wrong about someone
+    // else's charity is worse than no detail at all. Point people at the source
+    // and let them answer on their own terms.
+    public const string Enquiries =
+        "For anything specific - tax status, receipts, or how a gift is used -\r\n"
+      + "please contact FaleOfaz directly with the details below. They can answer\r\n"
+      + "those questions properly, and in whatever way they prefer.";
 
-    // Venmo issues giving records only for verified Charity profiles, not for
-    // ordinary business profiles - so promising a receipt here would be wrong.
+    // Kept, because it is a fact about Venmo rather than a claim about FaleOfaz,
+    // and it stops a donor assuming paperwork arrived when it did not.
     public const string Receipts =
-        "A Venmo business profile does not issue a giving receipt automatically.\r\n"
-      + "If you need one for tax purposes, ask FaleOfaz directly.";
+        "Worth knowing up front: a Venmo business profile does not issue a giving\r\n"
+      + "receipt automatically.";
 
     public const string Mission =
         "\"At FaleOfaz, our mission has always been rooted in one thing -\r\n"
@@ -588,7 +592,7 @@ public class AboutBox : Form
         y = opens.Bottom + 14;
 
         Label status = new Label();
-        status.Text = FaleOfaz.Status + "\r\n" + FaleOfaz.Receipts;
+        status.Text = FaleOfaz.Receipts + "\r\n\r\n" + FaleOfaz.Enquiries;
         status.Font = body;
         status.AutoSize = true;
         status.Location = new Point(22, y);

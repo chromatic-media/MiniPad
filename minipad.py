@@ -3445,7 +3445,8 @@ class MiniPad(object):
         # No trailing blank lines: the "para" tag already carries spacing3, and
         # doubling the two produced a visibly over-large gap.
         text.insert("end", FALEOFAZ_STORY2 + "\n", "para")
-        text.insert("end", FALEOFAZ_STATUS + "\n" + FALEOFAZ_RECEIPTS + "\n", "para")
+        text.insert("end", FALEOFAZ_RECEIPTS + "\n", "para")
+        text.insert("end", FALEOFAZ_ENQUIRIES + "\n", "para")
         text.insert("end",
                     "Phone      " + FALEOFAZ_PHONE + "\n"
                     "Email      " + FALEOFAZ_EMAIL + "\n"
@@ -4126,11 +4127,16 @@ FALEOFAZ_EMAIL = "faleofaz@utfaleofaz.org"
 FALEOFAZ_INSTAGRAM = "@faleofaz_llc"
 FALEOFAZ_WHERE = "West Valley City, Utah - serving Salt Lake County"
 
-# Kept on its own line, and worded flatly, because a claim about tax treatment
-# inside software that other people redistribute has to be exactly right. Do not
-# embellish it. If their status is ever stated differently, this is the single
-# string to change (and its twin in About.cs).
-FALEOFAZ_STATUS = "FaleOfaz is a registered 501(c)(3) nonprofit."
+# DELIBERATELY MAKES NO CLAIM about tax status, registration, or how gifts are
+# used. Those are FaleOfaz's own facts to state: they can change, this program
+# gets redistributed, and a detail that is subtly wrong about someone else's
+# charity is worse than no detail at all. Point people at the source and let them
+# answer on their own terms.
+FALEOFAZ_ENQUIRIES = (
+    "For anything specific - tax status, receipts, or how a gift is used - please "
+    "contact FaleOfaz directly with the details below. They can answer those "
+    "questions properly, and in whatever way they prefer."
+)
 
 # Venmo issues giving records only for verified Charity profiles, not ordinary
 # business profiles - so promising a receipt here would be wrong.
@@ -4143,9 +4149,11 @@ FALEOFAZ_STATUS = "FaleOfaz is a registered 501(c)(3) nonprofit."
 # spacing in the middle of a quote. (Caught by screenshotting the tab, which is
 # the only thing that can see it.) THE WORDS must match About.cs; the whitespace
 # deliberately does not.
+# Kept, because it is a fact about Venmo rather than a claim about FaleOfaz, and
+# it stops a donor assuming paperwork arrived when it did not.
 FALEOFAZ_RECEIPTS = (
-    "A Venmo business profile does not issue a giving receipt automatically. "
-    "If you need one for tax purposes, ask FaleOfaz directly."
+    "Worth knowing up front: a Venmo business profile does not issue a giving "
+    "receipt automatically."
 )
 
 FALEOFAZ_MISSION = (

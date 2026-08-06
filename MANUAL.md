@@ -1035,11 +1035,16 @@ your desktop's browser — the same thing that already happens when you click a 
 preview pane. Nothing is fetched, sent, or reported, and the tab works identically offline
 apart from the browser having nothing to show.
 
-**On donations and receipts.** FaleOfaz is a registered 501(c)(3) nonprofit. The tab says so,
-and says one more thing worth repeating here: a Venmo *business* profile does not issue a
-giving receipt automatically — only Venmo's verified *Charity* profiles do. If you need
-documentation for tax purposes, ask FaleOfaz directly rather than assuming Venmo has produced
-it for you.
+**On donations, and what the tab deliberately does not say.** It makes **no claim** about tax
+status, registration, or how gifts are used, and that is on purpose. Those are FaleOfaz's own
+facts to state — they can change, MiniPad gets passed from person to person, and a detail that
+is subtly wrong about someone else's charity is worse than no detail at all. The tab points
+anyone with a specific question at FaleOfaz's own phone number and email, so they can answer
+properly and in whatever way they prefer.
+
+The one thing it does state is a fact about Venmo rather than about FaleOfaz: a Venmo
+*business* profile does not issue a giving receipt automatically — only Venmo's verified
+*Charity* profiles do. That is there so nobody assumes paperwork arrived when it did not.
 
 **Their words are quoted with permission**, asked for and granted before the tab was built.
 The logo is used with permission and is shown unaltered, on a white card so that it stays
@@ -1077,9 +1082,10 @@ not use it, and an appeal that appears unbidden would fail that test badly.
 **MiniPad still makes no network connections of its own.** Both buttons hand the address to
 your desktop's browser, exactly as clicking a link in the preview already did.
 
-The tab also notes something easy to get wrong: FaleOfaz is a registered 501(c)(3), but a
-Venmo *business* profile issues no giving receipt automatically — only Venmo's verified
-*Charity* profiles do. Ask FaleOfaz directly if you need documentation.
+The tab makes **no claim** about tax status or how gifts are used — those are FaleOfaz's facts
+to state, not MiniPad's, so anyone with a specific question is pointed at their own phone and
+email. It does note one fact about Venmo: a *business* profile issues no giving receipt
+automatically, only a verified *Charity* profile does.
 
 Both builds carry a deliberately empty personal-note string. Put a sentence in it and it
 appears at the foot of the tab; leave it empty and nothing at all is drawn.

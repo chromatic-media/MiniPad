@@ -29,10 +29,18 @@ Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic)
   the desktop's browser, exactly as clicking a link in the preview pane already did. Nothing
   is fetched, sent or reported, and the tab behaves identically offline.
 
-  **On receipts, because getting this wrong would matter to someone.** FaleOfaz is a
-  registered 501(c)(3), and the tab says so — but it also says that a Venmo *business* profile
-  issues no giving receipt automatically, since only Venmo's verified *Charity* profiles do.
-  Promising documentation that does not arrive would be worse than saying nothing.
+  **The tab makes no claim about tax status or how gifts are used, on purpose.** Those are
+  FaleOfaz's own facts to state — they can change, MiniPad gets passed from person to person,
+  and a detail that is subtly wrong about someone else's charity is worse than no detail at
+  all. Anyone with a specific question is pointed at FaleOfaz's own phone number and email, so
+  they can answer properly and however they prefer. *(An earlier draft asserted a 501(c)(3)
+  registration; it was removed in favour of this, at the designer's suggestion, because the
+  organisation's own site and Instagram still brand as an LLC and the claim could not be
+  verified from here.)*
+
+  The one status-ish thing it does say is a fact about **Venmo**, not about FaleOfaz: a
+  *business* profile issues no giving receipt automatically, since only verified *Charity*
+  profiles do. That is there so nobody assumes paperwork arrived when it did not.
 
 - **Room for a personal note at the foot of the tab.** Both builds carry a deliberately empty
   string (`FaleOfaz.PersonalNote`, `FALEOFAZ_PERSONAL_NOTE`). Put a sentence in it and it
