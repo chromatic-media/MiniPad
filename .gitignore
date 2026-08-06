@@ -13,5 +13,11 @@ __pycache__/
 Thumbs.db
 desktop.ini
 
+# Portable settings, written beside the executable when portable mode is on.
+# This is per-user state - font, window position, preview mode - not project
+# content, and committing it would push one person's preferences onto everyone
+# who clones. MiniPad recreates it on demand; there is nothing here to preserve.
+settings.txt
+
 # Never commit credentials
 .mcp.json
