@@ -8,6 +8,131 @@ Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic)
 
 ---
 
+## 1.11 — 8/9/26
+
+A bug-fix release, from an exhaustive read of both builds end to end. No new features.
+Twenty-two findings, all fixed. Four of them were verified failing before the fix and
+passing after, against the shipped binary rather than the source.
+
+### Fixed — data loss
+
+- **A file that is not UTF-8 is no longer silently corrupted.** Both builds decoded every
+  file as UTF-8 with invalid bytes replaced by `U+FFFD`, and then *saved the replacement
+  characters back*. Opening a Windows-1252 text file holding a smart quote or a pound sign
+  and saving it destroyed that byte, with no warning and no way back. Decoding is now
+  strict: if the file is not UTF-8 it is read as the system code page (Windows) or
+  cp1252/latin-1 (Linux), which map every byte to a character and back, so saving
+  reproduces the original file.
+- **A fenced code block with anything after the language no longer loses its contents.**
+  ` ```js title="a.js" `, ` ```{.python} ` and ` ```js:line-numbers ` are ordinary in
+  other tools. The opening fence was dropped, the code inside was rendered as a *paragraph*
+  with its Markdown interpreted — so `*p` became emphasis and `_name_` became italics — and
+  the closing fence became an empty `<pre>`. Everything after the language is now accepted
+  as an info string, which is what CommonMark specifies.
+  - The cause was two regexes that were supposed to agree and did not: the fence parser
+    required end-of-line after the language, the "does a block start here" test only
+    checked the prefix. There is now one pattern, used by both.
+  - Belt and braces: the parser's "never stall" branch used to advance past a line it could
+    not classify, **discarding it**. It now emits the text instead. A wrong-looking
+    paragraph is visible and reportable; a vanished line is neither.
+
+### Fixed — freezes and leaks
+
+- **Searching the manual no longer freezes the About dialog.** One letter matches about
+  5,000 times in the manual, and every highlight is a native call. The old code did that
+  work three times per keystroke with no debounce. Now the search waits for a pause in
+  typing, repaints only the match that changed, and above 400 hits highlights just the
+  current one — the count stays exact either way. Measured on the Linux build: **28 ms** for
+  a query that used to lock the window for seconds.
+- **Minesweeper no longer allocates a GDI brush per cell per repaint** — up to ~960 of them
+  on Expert, none disposed, on every click.
+- **The tab strip no longer leaks a `Region` per repaint.** `Graphics.Clip` is a getter that
+  allocates; assigning it back does not dispose it, and repaints happen on every hover.
+- **The FaleOfaz logo is decoded once**, not on every open of the About dialog. A
+  `PictureBox` does not dispose its own `Image`, so each open leaked a ~300 KB bitmap.
+- **Fonts, and every common dialog, are disposed.** `StyleEditor` replaced a control's font
+  without freeing the old one, which meant a leaked font per document per zoom step.
+- **Linux: the preview no longer registers three Tcl commands per link per render.** Tkinter
+  frees those only when the widget dies, and the preview re-renders while you type. The URL
+  is now looked up at click time so one binding serves every render.
+- **Windows: the desktop light/dark preference is read once**, not on every colour lookup —
+  it was opening the registry a couple of hundred times per theme change. The Linux build
+  had always cached it.
+
+### Fixed — wrong or misleading behaviour
+
+- **The status bar no longer lies about the preview mode at startup.** Launching with the
+  remembered mode set to *editable* showed "Preview: read-only" over a pane that was in fact
+  editable. The label was set before the mode was restored, and nothing set it again.
+- **Linux: keyboard shortcuts no longer fire from inside dialogs.** `bind_all` puts a
+  binding on a tag every widget carries, so with About open Ctrl+B typed `**` into the
+  hidden document, F5 stamped a timestamp into it, Ctrl+A select-alled the editor instead of
+  the search box, Ctrl+W closed a tab nobody could see, and Ctrl+Shift+B opened a *second*
+  About dialog whose widgets replaced the first one's, leaving its search wired to a dead
+  control.
+- **Linux: applying a list or heading marker no longer marks one line too many.** Selecting
+  whole lines leaves the selection ending at column 0 of the next line, and that line was
+  being prefixed too.
+- **Editable preview no longer reshapes prose on the way back.** Typing `1. hello`, `# hi`,
+  `> quoted` or `- dashed` as ordinary text came back as a list, heading, quote or bullet.
+  Line-start markers are now escaped — and only at a line start, so `C:\Users\Tim` is still
+  left alone.
+- **Windows: the About dialog's colour hierarchy exists again.** Four different greys were
+  assigned across the About, Bunnies and Donate tabs and then all four were overwritten by
+  the theme walk, so every label ended up the same colour — and editing those values changed
+  nothing, which is what made it invisible. Secondary text is now asked for *by role* and
+  resolved from the palette, which also fixes it on the dark themes, where a grey chosen
+  against a white dialog was never going to be readable. This is how the Linux build has
+  always done it.
+- **Windows: the zoom readout no longer sits under the 100% button** in Appearance. At any
+  three-digit zoom — most of the 50–300 range — the autosizing label overlapped it by 5px.
+- **Windows: the finished tic-tac-toe board stays readable.** Disabling the cells greyed the
+  X and O out at exactly the moment you want to look at them. The click guard already
+  refused moves after the game ended, so the disabling was pure cost.
+- **Settings saved after a write failure are no longer lost on restart.** If the portable
+  file became unwritable, both builds fell back to writing the profile copy — but left the
+  portable file in place, and its *existence* is what selects portable mode, so the next
+  launch read the stale one. The dead file is now removed.
+- **Linux: `data:`, `javascript:` and `vbscript:` links are refused centrally**, in
+  `open_in_browser`, rather than in one caller that happened to remember.
+- **A malformed numeric HTML entity can no longer crash the editor.** `&#55296;` is half a
+  surrogate pair and `ConvertFromUtf32` throws on it; the guard allowed it through. The
+  HTML-to-Markdown converter is also now wrapped — it was the one risky call in the file
+  that was not.
+
+### Fixed — documentation that did not match the program
+
+- **"Exported HTML is identical from either build" was false**, and it was asserted in four
+  places including the Build & Libraries tab users read. The Windows export also stamps a
+  `data-line` attribute on every block, which its preview needs for click-to-jump, and a
+  meta tag for the IE engine. The wording now says what is actually true: same engine, same
+  stylesheet, same appearance, not byte-for-byte.
+- **And one real difference behind that claim is fixed.** The Linux stylesheet was missing
+  `body>*:first-child{margin-top:0;}`, so a page exported from Linux carried a stray top
+  margin the Windows one did not — while the Python docstring claimed the two stylesheets
+  were byte-for-byte identical. With that rule added, and `data-line` plus the meta tag
+  normalised away, the two builds' exports of a mixed corpus are now **character-for-character
+  identical** — tested, not asserted.
+- **Indented code blocks are documented as unsupported.** Four-space code was silently
+  rendered as a paragraph and was not in the "Not supported" list. Fenced blocks are, and
+  the manual now also says they accept an info string.
+- Removed a dark stylesheet and two `ToHtml` overloads that nothing called. The dead copy had
+  drifted to describe table striping the real stylesheet does not have, which is worse than
+  no code because it reads like documentation. Also removed two unreachable methods on the
+  About dialog.
+- Corrected a comment in the Linux build that declared any hard newline in the FaleOfaz text
+  a bug. Mid-sentence, yes; between sentences it is a deliberate paragraph break, and two of
+  those strings use one.
+
+### Unchanged, and verified so
+
+- The FaleOfaz wording is identical between the two builds — all twelve constants plus the
+  story, compared word for word. Both files demand this in capitals; it holds.
+- Both games still play correctly, the first Minesweeper click is still always safe, and
+  hard tic-tac-toe still cannot be beaten.
+
+---
+
 ## 1.10 — 8/6/26
 
 ### Added

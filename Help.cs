@@ -25,6 +25,22 @@ public class HelpPage : Panel
     private string lastQuery = "";
     private int current = -1;
 
+    // ---- what keeps searching fast ----
+    //
+    // Every highlight is a native EM_SETCHARFORMAT round trip, and the manual is
+    // 56 KB: a single letter matches ~5,000 times. The old code did that work
+    // THREE times per keystroke - once to paint every match, once more because
+    // ShowCurrent repainted all of them, and a third time when the next keystroke
+    // cleared them - with no debounce. Typing "the" froze the dialog for seconds.
+    //
+    // Three things fix it: wait until typing pauses, never repaint a match that
+    // does not need it, and stop painting thousands of backgrounds nobody asked
+    // for. The MATCH COUNT is always exact - only the painting is capped.
+    private readonly Timer searchTimer;
+    private const int HighlightCap = 400;
+    private bool highlightedAll;      // did every match get a background?
+    private int currentPainted = -1;  // which match currently wears the orange
+
     private static readonly Color HighlightAll = Color.FromArgb(255, 244, 158);
     private static readonly Color HighlightCurrent = Color.FromArgb(255, 176, 62);
 
@@ -43,10 +59,16 @@ public class HelpPage : Panel
         searchLabel.AutoSize = true;
         searchLabel.Location = new Point(0, 9);
 
+        searchTimer = new Timer();
+        searchTimer.Interval = 200;   // long enough to swallow a burst of typing
+        searchTimer.Tick += delegate { searchTimer.Stop(); Search(searchBox.Text, true); };
+
         searchBox = new TextBox();
         searchBox.Location = new Point(52, 6);
         searchBox.Width = 260;
-        searchBox.TextChanged += delegate { Search(searchBox.Text, true); };
+        // Debounced, not immediate: searching on every keystroke means searching
+        // for "t", then "th", then "the", and the first of those is the expensive one.
+        searchBox.TextChanged += delegate { searchTimer.Stop(); searchTimer.Start(); };
         searchBox.KeyDown += new KeyEventHandler(OnSearchKeyDown);
 
         previousButton = new Button();
@@ -222,27 +244,31 @@ public class HelpPage : Panel
 
     private void Search(string query, bool jumpToFirst)
     {
+        // ⚠ ClearHighlights runs FIRST, while lastQuery still names the OLD query -
+        // it needs that length to know how wide the old highlights were.
         ClearHighlights();
         matches.Clear();
         current = -1;
+        currentPainted = -1;
         lastQuery = query;
 
+        // Finding the matches is pure string work and costs almost nothing. It is
+        // painting them that is expensive, so the two are now separate steps.
         if (query.Length > 0)
         {
             int index = plainText.IndexOf(query, 0, StringComparison.OrdinalIgnoreCase);
             while (index >= 0)
             {
                 matches.Add(index);
-                viewer.SelectionStart = index;
-                viewer.SelectionLength = query.Length;
-                viewer.SelectionBackColor = HighlightAll;
-                viewer.SelectionColor = Theme.HighlightInk;
-
                 int next = index + Math.Max(1, query.Length);
                 if (next >= plainText.Length) break;
                 index = plainText.IndexOf(query, next, StringComparison.OrdinalIgnoreCase);
             }
         }
+
+        highlightedAll = matches.Count > 0 && matches.Count <= HighlightCap;
+        if (highlightedAll)
+            foreach (int start in matches) Highlight(start, HighlightAll, Theme.HighlightInk);
 
         if (jumpToFirst && matches.Count > 0)
         {
@@ -268,6 +294,8 @@ public class HelpPage : Panel
     {
         if (searchBox.Text != lastQuery)
         {
+            // Enter should not wait out the debounce.
+            searchTimer.Stop();
             Search(searchBox.Text, true);
             return;
         }
@@ -281,36 +309,66 @@ public class HelpPage : Panel
         UpdateResultLabel();
     }
 
+    // One highlight. Every painting path goes through here.
+    // Named Highlight, not Paint: Control already has a Paint event, and shadowing
+    // it compiles with a warning and confuses everyone who reads it afterwards.
+    private void Highlight(int start, Color back, Color ink)
+    {
+        viewer.SelectionStart = start;
+        viewer.SelectionLength = lastQuery.Length;
+        viewer.SelectionBackColor = back;
+        viewer.SelectionColor = ink;
+    }
+
     private void ShowCurrent()
     {
         if (current < 0 || current >= matches.Count) return;
 
-        // Repaint the previous current match as an ordinary hit.
-        foreach (int start in matches)
+        // Put back ONLY the match that was current. Repainting every match here
+        // was a second full pass over thousands of them, on top of the one Search
+        // had just done - and all it needed to undo was one highlight.
+        if (currentPainted >= 0 && currentPainted < matches.Count && currentPainted != current)
         {
-            viewer.SelectionStart = start;
-            viewer.SelectionLength = lastQuery.Length;
-            viewer.SelectionBackColor = HighlightAll;
-            viewer.SelectionColor = Theme.HighlightInk;
+            if (highlightedAll) Highlight(matches[currentPainted], HighlightAll, Theme.HighlightInk);
+            else Highlight(matches[currentPainted], viewer.BackColor, viewer.ForeColor);
         }
 
+        Highlight(matches[current], HighlightCurrent, Theme.HighlightInk);
+        currentPainted = current;
+
+        // Move the caret without leaving a selection on top of the orange.
         viewer.SelectionStart = matches[current];
-        viewer.SelectionLength = lastQuery.Length;
-        viewer.SelectionBackColor = HighlightCurrent;
-        viewer.SelectionColor = Theme.HighlightInk;
+        viewer.SelectionLength = 0;
         viewer.ScrollToCaret();
     }
 
     private void ClearHighlights()
     {
-        if (matches.Count == 0) return;
-        foreach (int start in matches)
+        if (matches.Count == 0 || lastQuery.Length == 0) return;
+
+        if (highlightedAll)
         {
-            viewer.SelectionStart = start;
-            viewer.SelectionLength = lastQuery.Length;
-            viewer.SelectionBackColor = viewer.BackColor;
-            viewer.SelectionColor = Theme.EditorText;
+            foreach (int start in matches)
+                Highlight(start, viewer.BackColor, viewer.ForeColor);
         }
+        else if (currentPainted >= 0 && currentPainted < matches.Count)
+        {
+            // Over the cap only one match was ever painted, so only one needs clearing.
+            Highlight(matches[currentPainted], viewer.BackColor, viewer.ForeColor);
+        }
+        currentPainted = -1;
+    }
+
+    // The debounce timer outlives nothing: it must go when the page does, or it
+    // ticks at a disposed RichTextBox.
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && searchTimer != null)
+        {
+            searchTimer.Stop();
+            searchTimer.Dispose();
+        }
+        base.Dispose(disposing);
     }
 
     private void UpdateResultLabel()
@@ -330,8 +388,15 @@ public class HelpPage : Panel
         }
         else
         {
-            resultLabel.Text = string.Format("{0} of {1} match{2}",
-                current + 1, matches.Count, matches.Count == 1 ? "" : "es");
+            // Say when the highlighting was capped, rather than letting it look
+            // like most matches were missed. The count itself is always exact.
+            //
+            // ⚠ Kept SHORT on purpose. The first wording ran off the right edge of
+            // the dialog at its minimum width - the same trap as the Donate tab's
+            // caption, and equally invisible until someone screenshots it.
+            resultLabel.Text = string.Format("{0} of {1} match{2}{3}",
+                current + 1, matches.Count, matches.Count == 1 ? "" : "es",
+                highlightedAll ? "" : " (current only)");
             resultLabel.ForeColor = Theme.UiDim;
         }
     }

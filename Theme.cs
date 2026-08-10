@@ -189,6 +189,44 @@ public static class Theme
     // Ink dark enough to read against the fixed yellow search highlights.
     public static readonly Color HighlightInk = Color.FromArgb(26, 26, 26);
 
+    // ---- secondary text asked for BY ROLE, not by value ----
+    //
+    // ⚠ ApplyToChildren repaints every Label with MenuText, so a colour assigned
+    // when a page was built is erased the moment Theme.Apply runs. The About
+    // dialog set four different hand-picked greys and every one of them ended up
+    // identical - the hierarchy the code described did not exist on screen, and
+    // editing those values changed nothing, which is what made it invisible.
+    //
+    // Hardcoded greys were the wrong answer anyway: a tone chosen against a white
+    // dialog is unreadable on Nord or Monokai. Tag a control with a role instead
+    // and the walk resolves it from whichever palette is in force.
+    //
+    // The Linux build has done it this way all along - see ink_role in minipad.py.
+    public const string InkDim = "ink:dim";
+    public const string InkFaint = "ink:faint";
+    public const string InkAccent = "ink:accent";
+
+    /// <summary>Mark a control as wanting a secondary colour. Returns it, so it can be chained.</summary>
+    public static T Ink<T>(T control, string role) where T : Control
+    {
+        control.Tag = role;
+        return control;
+    }
+
+    // Null when the control carries no role - including when Tag holds something
+    // else entirely, which it does elsewhere (Document hangs itself off Editor.Tag,
+    // and the tic-tac-toe cells keep their index there).
+    private static Color? RoleColour(object tag)
+    {
+        string role = tag as string;
+        if (role == InkDim) return UiDim;
+        if (role == InkAccent) return UiAccent;
+        // Fainter than UiDim, for signatures and asides - deliberately below the
+        // 4.5:1 that UiDim guarantees, because nothing that matters is set in it.
+        if (role == InkFaint) return Blend(UiDim, WindowBack, 0.3);
+        return null;
+    }
+
     private static double Luminance(Color colour)
     {
         double[] channels = new double[3];
@@ -489,6 +527,12 @@ public static class Theme
             // A read-only profile must not stop the app working. If the portable
             // file has become unwritable - a stick flipped to read-only mid-session
             // - fall back to the profile rather than silently losing the settings.
+            //
+            // ⚠ AND THEN REMOVE THE PORTABLE FILE, or the fallback only appears to
+            // work. Portable mode is switched on by that file EXISTING, so leaving
+            // an unwritable one behind means the next launch reads the stale copy
+            // and every setting saved this way is silently discarded. Writing
+            // somewhere the program will not look next time is not saving.
             try
             {
                 if (IsPortable)
@@ -496,6 +540,8 @@ public static class Theme
                     string folder = Path.GetDirectoryName(ProfileSettingsPath);
                     if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
                     WriteTo(ProfileSettingsPath);
+                    try { File.Delete(PortableSettingsPath); }
+                    catch { }   // unwritable media may refuse this too; nothing more to try
                 }
             }
             catch { }
@@ -550,7 +596,13 @@ public static class Theme
         Save();
     }
 
-    public static void SetMode(ThemeMode mode) { Mode = mode; Save(); }
+    public static void SetMode(ThemeMode mode)
+    {
+        Mode = mode;
+        // Ask the desktop again next time it is consulted.
+        if (mode == ThemeMode.System) ForgetSystemPreference();
+        Save();
+    }
 
     public static void SetPreset(string name)
     {
@@ -578,7 +630,30 @@ public static class Theme
         Save();
     }
 
+    // Asked of the registry ONCE and remembered.
+    //
+    // Every colour in this class resolves through Base, and Base called this - so
+    // ApplyToChildren, which reads two colours per control, was opening and
+    // closing the registry a couple of hundred times per theme apply, and
+    // PreviewCss several times per render. The Linux build has always cached this
+    // (Theme._system_dark in minipad.py) for exactly the same reason.
+    //
+    // Cleared when the mode changes, which is the only moment the answer can
+    // matter differently. A user who changes the Windows setting while MiniPad is
+    // running sees it at the next launch - the same as before, since nothing
+    // watched for that notification anyway.
+    private static bool? systemDark;
+
+    private static void ForgetSystemPreference() { systemDark = null; }
+
     private static bool SystemPrefersDark()
+    {
+        if (systemDark.HasValue) return systemDark.Value;
+        systemDark = ReadSystemPrefersDark();
+        return systemDark.Value;
+    }
+
+    private static bool ReadSystemPrefersDark()
     {
         try
         {
@@ -647,7 +722,8 @@ public static class Theme
             }
             else if (control is Label || control is RadioButton || control is CheckBox)
             {
-                control.ForeColor = MenuText;
+                Color? role = RoleColour(control.Tag);
+                control.ForeColor = role.HasValue ? role.Value : MenuText;
             }
 
             if (control.Controls.Count > 0) ApplyToChildren(control);

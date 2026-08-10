@@ -451,43 +451,64 @@ public class MinesweeperForm : Form
         Color.Black, Color.FromArgb(90, 90, 90),
     };
 
+    // ⚠ EVERY GDI+ OBJECT HERE IS DISPOSED, AND ON EXPERT THAT MATTERS.
+    //
+    // This used to allocate a SolidBrush per cell inside the loop - up to ~960 of
+    // them on a 30x16 board, plus one per number, plus a Font and a StringFormat -
+    // and dispose none of them, on every repaint, and a repaint happens on every
+    // click. Brushes are finalizable so nothing crashed, but it is the textbook
+    // route to GDI handle exhaustion and it made the board stutter.
+    //
+    // The two cell fills never change colour, so they are made once and reused.
+    private static readonly Color HiddenCell = Color.FromArgb(198, 198, 198);
+    private static readonly Color OpenCell = Color.FromArgb(222, 222, 222);
+
     private void OnGridPaint(object sender, PaintEventArgs e)
     {
         Graphics canvas = e.Graphics;
-        Font numberFont = new Font("Segoe UI", 10f, FontStyle.Bold);
-        StringFormat centre = new StringFormat();
-        centre.Alignment = StringAlignment.Center;
-        centre.LineAlignment = StringAlignment.Center;
 
-        for (int x = 0; x < board.Width; x++)
+        using (Font numberFont = new Font("Segoe UI", 10f, FontStyle.Bold))
+        using (StringFormat centre = new StringFormat())
+        using (SolidBrush hidden = new SolidBrush(HiddenCell))
+        using (SolidBrush open = new SolidBrush(OpenCell))
+        using (SolidBrush number = new SolidBrush(Color.Black))
         {
-            for (int y = 0; y < board.Height; y++)
+            centre.Alignment = StringAlignment.Center;
+            centre.LineAlignment = StringAlignment.Center;
+
+            for (int x = 0; x < board.Width; x++)
             {
-                Rectangle box = new Rectangle(x * Cell, y * Cell, Cell, Cell);
-
-                if (!board.IsRevealed(x, y))
+                for (int y = 0; y < board.Height; y++)
                 {
-                    canvas.FillRectangle(new SolidBrush(Color.FromArgb(198, 198, 198)), box);
-                    ControlPaint.DrawBorder3D(canvas, box, Border3DStyle.Raised);
-                    if (board.IsFlagged(x, y))
-                        canvas.DrawString("!", numberFont, Brushes.Firebrick, box, centre);
-                    continue;
+                    Rectangle box = new Rectangle(x * Cell, y * Cell, Cell, Cell);
+
+                    if (!board.IsRevealed(x, y))
+                    {
+                        canvas.FillRectangle(hidden, box);
+                        ControlPaint.DrawBorder3D(canvas, box, Border3DStyle.Raised);
+                        if (board.IsFlagged(x, y))
+                            canvas.DrawString("!", numberFont, Brushes.Firebrick, box, centre);
+                        continue;
+                    }
+
+                    canvas.FillRectangle(open, box);
+                    canvas.DrawRectangle(Pens.Silver, box);
+
+                    if (board.IsMine(x, y))
+                    {
+                        canvas.FillEllipse(Brushes.Black,
+                            box.X + 6, box.Y + 6, Cell - 12, Cell - 12);
+                        continue;
+                    }
+
+                    int adjacent = board.Adjacent(x, y);
+                    if (adjacent > 0)
+                    {
+                        // One brush, recoloured, rather than one brush per number.
+                        number.Color = NumberColours[adjacent];
+                        canvas.DrawString(adjacent.ToString(), numberFont, number, box, centre);
+                    }
                 }
-
-                canvas.FillRectangle(new SolidBrush(Color.FromArgb(222, 222, 222)), box);
-                canvas.DrawRectangle(Pens.Silver, box);
-
-                if (board.IsMine(x, y))
-                {
-                    canvas.FillEllipse(Brushes.Black,
-                        box.X + 6, box.Y + 6, Cell - 12, Cell - 12);
-                    continue;
-                }
-
-                int adjacent = board.Adjacent(x, y);
-                if (adjacent > 0)
-                    canvas.DrawString(adjacent.ToString(), numberFont,
-                        new SolidBrush(NumberColours[adjacent]), box, centre);
             }
         }
     }
@@ -547,10 +568,9 @@ public class TicTacToeForm : Form
         statusLabel.Location = new Point(12, 260);
         statusLabel.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
 
-        scoreLabel = new Label();
+        scoreLabel = Theme.Ink(new Label(), Theme.InkDim);
         scoreLabel.AutoSize = true;
         scoreLabel.Location = new Point(12, 282);
-        scoreLabel.ForeColor = Color.FromArgb(90, 96, 106);
 
         Button newGame = new Button();
         newGame.Text = "&New game";
@@ -588,7 +608,9 @@ public class TicTacToeForm : Form
             cells[n].Enabled = true;
         }
         statusLabel.Text = "Your turn - you are X";
-        statusLabel.ForeColor = SystemColors.ControlText;
+        // Theme.MenuText, not SystemColors: on a dark palette the system colour is
+        // near-black text on a near-black panel.
+        statusLabel.ForeColor = Theme.MenuText;
         UpdateScore();
     }
 
@@ -619,7 +641,15 @@ public class TicTacToeForm : Form
         char winner = TicTacToe.Winner(board);
         if (winner == '\0') return false;
 
-        foreach (Button cell in cells) cell.Enabled = false;
+        // ⚠ The cells are deliberately NOT disabled here any more.
+        //
+        // A disabled Button greys its own text, and WinForms offers no way to
+        // override that - so the finished board became unreadable at exactly the
+        // moment you want to look at it and see how the line went. Nothing is lost
+        // by leaving them live: OnCellClick already refuses a move once
+        // TicTacToe.IsOver(board) is true, so the guard was doing the real work and
+        // the greying was pure cost. The Linux build sidesteps this with
+        // disabledforeground, which Tk has and WinForms does not.
 
         if (winner == TicTacToe.Human)
         {
@@ -637,7 +667,9 @@ public class TicTacToeForm : Form
         {
             draws++;
             statusLabel.Text = "A draw.";
-            statusLabel.ForeColor = SystemColors.ControlText;
+            // Theme.MenuText, not SystemColors: on a dark palette the system colour is
+        // near-black text on a near-black panel.
+        statusLabel.ForeColor = Theme.MenuText;
         }
 
         UpdateScore();

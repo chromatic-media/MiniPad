@@ -11,8 +11,8 @@ using Microsoft.Win32;
 public static class AppInfo
 {
     public const string Name = "MiniPad";
-    public const string Version = "1.10";
-    public const string ReleaseDate = "8/6/26";
+    public const string Version = "1.11";
+    public const string ReleaseDate = "8/9/26";
     public const string Designer = "Tim Broussard";
     public const string Author = "Legion";
 
@@ -209,10 +209,8 @@ public class AboutBox : Form
         Theme.Apply(this);
     }
 
-    public void ShowBunnies()
-    {
-        tabs.SelectedTab = bunniesPage;
-    }
+    // ShowBunnies() was removed: nothing called it, and the constructor flag
+    // (new AboutBox(true)) is how the Bunnies tab is actually reached.
 
     // Used by F1: open on Help with the cursor already in the search box.
     public void ShowHelp()
@@ -229,9 +227,11 @@ public class AboutBox : Form
         title.AutoSize = true;
         title.Location = new Point(20, 16);
 
-        Label tagline = new Label();
+        // Secondary text asks for a ROLE, not a colour. A literal grey here was
+        // overwritten by Theme.Apply at the end of the constructor and never
+        // reached the screen - see the ink roles in Theme.cs.
+        Label tagline = Theme.Ink(new Label(), Theme.InkDim);
         tagline.Text = "A small text editor with live Markdown preview";
-        tagline.ForeColor = Color.FromArgb(90, 96, 106);
         tagline.AutoSize = true;
         tagline.Location = new Point(23, 58);
 
@@ -253,7 +253,7 @@ public class AboutBox : Form
             rule.Width = Math.Max(200, page.ClientSize.Width - 46);
         };
 
-        Label blurb = new Label();
+        Label blurb = Theme.Ink(new Label(), Theme.InkDim);
         blurb.Text = "Two builds ship together: MiniPad.exe for Windows and minipad.py\r\n"
                    + "for Linux. Both read and write plain text, and both render Markdown.\r\n\r\n"
                    + "Copyright (c) 2026 " + AppInfo.Designer + ". All rights reserved.\r\n"
@@ -263,7 +263,6 @@ public class AboutBox : Form
                    + "opens it from anywhere. There is something under Bunnies, too.";
         blurb.AutoSize = true;
         blurb.Location = new Point(23, 176);
-        blurb.ForeColor = Color.FromArgb(70, 76, 86);
 
         page.Controls.Add(title);
         page.Controls.Add(tagline);
@@ -315,27 +314,26 @@ public class AboutBox : Form
 
     private void SaveLicense(string text)
     {
-        SaveFileDialog dialog = new SaveFileDialog();
-        dialog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
-        dialog.DefaultExt = "txt";
-        dialog.FileName = "LICENSE.txt";
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        try
+        using (SaveFileDialog dialog = new SaveFileDialog())
         {
-            File.WriteAllText(dialog.FileName, text, new UTF8Encoding(false));
-        }
-        catch (Exception error)
-        {
-            MessageBox.Show(this, "Could not save the license:\r\n\r\n" + error.Message,
-                AppInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            dialog.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+            dialog.DefaultExt = "txt";
+            dialog.FileName = "LICENSE.txt";
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            try
+            {
+                File.WriteAllText(dialog.FileName, text, new UTF8Encoding(false));
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(this, "Could not save the license:\r\n\r\n" + error.Message,
+                    AppInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
     }
 
-    /// <summary>Open the dialog on the License tab.</summary>
-    public void ShowLicense()
-    {
-        tabs.SelectedTab = licensePage;
-    }
+    // ShowLicense() was removed for the same reason - unreachable. The License tab
+    // is reached by clicking it. Add it back the day something needs to open there.
 
     private void BuildDetailsPage(TabPage page)
     {
@@ -348,7 +346,9 @@ public class AboutBox : Form
         details.ScrollBars = ScrollBars.Both;
         details.WordWrap = false;
         details.Font = new Font("Consolas", 9f);
-        details.BackColor = Color.White;
+        // No explicit BackColor: Theme.Apply gives every text box the editor
+        // colours, so hardcoding white here achieved nothing except to imply,
+        // to the next reader, that it did.
         details.Dock = DockStyle.Fill;
         details.Text = BuildReport();
         details.Select(0, 0);
@@ -381,9 +381,8 @@ public class AboutBox : Form
         heading.AutoSize = true;
         heading.Location = new Point(18, 14);
 
-        Label intro = new Label();
+        Label intro = Theme.Ink(new Label(), Theme.InkDim);
         intro.Text = "Games hiding inside a text editor. Nothing here touches your document.";
-        intro.ForeColor = Color.FromArgb(90, 96, 106);
         intro.AutoSize = true;
         intro.Location = new Point(20, 48);
 
@@ -396,7 +395,6 @@ public class AboutBox : Form
         TextBox commands = new TextBox();
         commands.Multiline = true;
         commands.ReadOnly = true;
-        commands.BackColor = Color.White;
         commands.Font = new Font("Consolas", 9f);
         commands.Location = new Point(20, 106);
         commands.Size = new Size(Math.Max(300, ClientSize.Width - 66), 96);
@@ -430,12 +428,11 @@ public class AboutBox : Form
                 game.ShowDialog(this);
         };
 
-        Label mineNote = new Label();
+        Label mineNote = Theme.Ink(new Label(), Theme.InkDim);
         mineNote.Text = "Beginner 9x9/10, Intermediate 16x16/40, Expert 30x16/99.\r\n"
                       + "Left click reveals, right click flags. The first click is always safe.";
         mineNote.AutoSize = true;
         mineNote.Location = new Point(160, 242);
-        mineNote.ForeColor = Color.FromArgb(70, 76, 86);
 
         Button tictactoe = new Button();
         tictactoe.Text = "&Tic-tac-toe";
@@ -447,19 +444,17 @@ public class AboutBox : Form
                 game.ShowDialog(this);
         };
 
-        Label ticNote = new Label();
+        Label ticNote = Theme.Ink(new Label(), Theme.InkDim);
         ticNote.Text = "Easy plays at random, Medium blocks and takes wins,\r\n"
                      + "Hard is full minimax - it cannot be beaten, only drawn.";
         ticNote.AutoSize = true;
         ticNote.Location = new Point(160, 298);
-        ticNote.ForeColor = Color.FromArgb(70, 76, 86);
 
-        Label signature = new Label();
+        Label signature = Theme.Ink(new Label(), Theme.InkFaint);
         signature.Text = "Designed by " + AppInfo.Designer
                        + ". Built in conversation with " + AppInfo.Author + ".";
         signature.AutoSize = true;
         signature.Location = new Point(20, 352);
-        signature.ForeColor = Color.FromArgb(140, 146, 156);
 
         page.Controls.Add(heading);
         page.Controls.Add(intro);
@@ -530,19 +525,17 @@ public class AboutBox : Form
         scroller.Controls.Add(heading);
         y = heading.Bottom + 2;
 
-        Label tagline = new Label();
+        Label tagline = Theme.Ink(new Label(), Theme.InkDim);
         tagline.Text = FaleOfaz.Tagline;
         tagline.Font = new Font("Segoe UI", 9.75f, FontStyle.Italic);
-        tagline.ForeColor = Color.FromArgb(90, 96, 106);
         tagline.AutoSize = true;
         tagline.Location = new Point(22, y);
         scroller.Controls.Add(tagline);
         y = tagline.Bottom + 4;
 
-        Label where = new Label();
+        Label where = Theme.Ink(new Label(), Theme.InkFaint);
         where.Text = "DSPD-certified residential care - " + FaleOfaz.Where;
         where.Font = body;
-        where.ForeColor = Color.FromArgb(140, 146, 156);
         where.AutoSize = true;
         where.Location = new Point(22, y);
         scroller.Controls.Add(where);
@@ -556,12 +549,13 @@ public class AboutBox : Form
         scroller.Controls.Add(mission);
         y = mission.Bottom + 16;
 
+        // No role: this is the body of the page, so it takes the ordinary text
+        // colour rather than a secondary one.
         Label story = new Label();
         story.Text = FaleOfaz.Story;
         story.Font = body;
         story.AutoSize = true;
         story.Location = new Point(22, y);
-        story.ForeColor = Color.FromArgb(70, 76, 86);
         scroller.Controls.Add(story);
         y = story.Bottom + 22;
 
@@ -580,26 +574,25 @@ public class AboutBox : Form
         scroller.Controls.Add(donate);
         y = donate.Bottom + 10;
 
-        Label opens = new Label();
+        Label opens = Theme.Ink(new Label(), Theme.InkFaint);
         // Kept identical to the Linux build's wording. The fuller point - that
         // MiniPad never connects to anything itself - is made in the manual.
         opens.Text = "Both open in your own browser.";
         opens.Font = body;
-        opens.ForeColor = Color.FromArgb(140, 146, 156);
         opens.AutoSize = true;
         opens.Location = new Point(22, y);
         scroller.Controls.Add(opens);
         y = opens.Bottom + 14;
 
-        Label status = new Label();
+        Label status = Theme.Ink(new Label(), Theme.InkDim);
         status.Text = FaleOfaz.Receipts + "\r\n\r\n" + FaleOfaz.Enquiries;
         status.Font = body;
         status.AutoSize = true;
         status.Location = new Point(22, y);
-        status.ForeColor = Color.FromArgb(70, 76, 86);
         scroller.Controls.Add(status);
         y = status.Bottom + 18;
 
+        // Not dimmed: these are the details a donor is meant to act on.
         Label contact = new Label();
         contact.Text = "Phone      " + FaleOfaz.Phone + "\r\n"
                      + "Email      " + FaleOfaz.Email + "\r\n"
@@ -607,7 +600,6 @@ public class AboutBox : Form
         contact.Font = new Font("Consolas", 9f);
         contact.AutoSize = true;
         contact.Location = new Point(22, y);
-        contact.ForeColor = Color.FromArgb(70, 76, 86);
         scroller.Controls.Add(contact);
         y = contact.Bottom + 18;
 
@@ -631,20 +623,18 @@ public class AboutBox : Form
             scroller.Controls.Add(note);
             y = note.Bottom + 6;
 
-            Label from = new Label();
+            Label from = Theme.Ink(new Label(), Theme.InkFaint);
             from.Text = "- " + AppInfo.Designer;
             from.Font = body;
-            from.ForeColor = Color.FromArgb(140, 146, 156);
             from.AutoSize = true;
             from.Location = new Point(22, y);
             scroller.Controls.Add(from);
             y = from.Bottom + 16;
         }
 
-        Label why = new Label();
+        Label why = Theme.Ink(new Label(), Theme.InkFaint);
         why.Text = FaleOfaz.Why;
         why.Font = body;
-        why.ForeColor = Color.FromArgb(140, 146, 156);
         why.AutoSize = true;
         why.Location = new Point(22, y);
         scroller.Controls.Add(why);
@@ -652,7 +642,23 @@ public class AboutBox : Form
 
     // The logo, read from the copy compiled into the executable, so it travels
     // with the program exactly like the manual and the licence do.
+    //
+    // Cached, like AppInfo.AppIcon above. Without this every open of the About
+    // dialog decoded another ~300 KB bitmap and leaked it: the PictureBox is
+    // disposed with the form, but Control.Dispose does NOT dispose its Image, and
+    // the MemoryStream behind it has to stay alive anyway.
+    private static Image logoCache;
+    private static bool logoTried;
+
     private static Image LoadLogo()
+    {
+        if (logoTried) return logoCache;
+        logoTried = true;
+        logoCache = ReadLogo();
+        return logoCache;
+    }
+
+    private static Image ReadLogo()
     {
         try
         {

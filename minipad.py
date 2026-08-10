@@ -9,7 +9,13 @@ Runs on Ubuntu with the Python 3 standard library only:
 
 The Windows build renders its preview with the Internet Explorer engine; there is
 no equivalent on Linux, so this build renders Markdown directly into a Tk text
-widget using styled tags. Exported HTML is identical between the two builds.
+widget using styled tags.
+
+Exported HTML uses the same Markdown engine, the same stylesheet and the same
+theme, so a page exported from either build looks the same and stands alone. It is
+not byte-identical: the Windows build also stamps a `data-line` attribute on every
+block (its preview needs them for click-to-jump) and an `X-UA-Compatible` meta tag
+for the IE engine, and neither is of any use here.
 """
 
 import codecs
@@ -31,12 +37,12 @@ from tkinter import messagebox
 from tkinter import ttk
 
 APP_NAME = "MiniPad"
-VERSION = "1.10"
+VERSION = "1.11"
 
 # The editor and the preview share this top inset so their first lines sit at
 # the same height. Change it and both panes move together.
 PREVIEW_PAD_Y = 12
-RELEASE_DATE = "8/6/26"
+RELEASE_DATE = "8/9/26"
 DESIGNER = "Tim Broussard"
 AUTHOR = "Legion"
 
@@ -316,7 +322,14 @@ class Theme(object):
 
     @classmethod
     def preview_css(cls):
-        """Byte-for-byte the stylesheet the Windows build generates."""
+        """Byte-for-byte the stylesheet the Windows build generates.
+
+        ⚠ It genuinely is byte-for-byte, and that is a claim worth testing rather
+        than asserting - it was WRONG until this was noticed. The
+        `body>*:first-child` rule below was present in Theme.PreviewCss() and
+        missing here, so a page exported from Linux carried a stray top margin on
+        its first block that the same page exported from Windows did not.
+        """
         palette = cls.base()
         back = cls.editor_back()
         text = cls.editor_text()
@@ -328,6 +341,12 @@ class Theme(object):
 
         return ("body{font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:" + str(size) + "px;"
                 "line-height:1.6;color:" + text + ";background:" + back + ";margin:0;padding:24px 28px;}"
+                # The first block starts flush with the padding, so line 1 of the
+                # rendering sits level with line 1 of the source. Without it a
+                # heading adds its own 24px margin on top of the body padding.
+                # This build's own preview does the same job with the "firstblock"
+                # tag, but an EXPORTED page has only the stylesheet to go on.
+                "body>*:first-child{margin-top:0;}"
                 "h1,h2,h3,h4,h5,h6{margin:24px 0 12px;line-height:1.25;font-weight:600;}"
                 "h1{font-size:1.9em;border-bottom:1px solid " + border + ";padding-bottom:8px;}"
                 "h2{font-size:1.45em;border-bottom:1px solid " + border + ";padding-bottom:6px;}"
@@ -527,6 +546,12 @@ class Theme(object):
             # A read-only home directory must not stop the editor working. If the
             # portable file has become unwritable - a stick flipped to read-only
             # mid-session - fall back rather than silently losing the settings.
+            #
+            # ⚠ AND THEN REMOVE THE PORTABLE FILE, or the fallback only appears to
+            # work. Portable mode is switched on by that file EXISTING, so leaving
+            # an unwritable one behind means the next launch reads the stale copy
+            # and everything saved this way is silently discarded. Writing somewhere
+            # the program will not look next time is not saving.
             try:
                 if cls.is_portable():
                     profile = cls.profile_settings_path()
@@ -534,6 +559,10 @@ class Theme(object):
                     if not os.path.isdir(folder):
                         os.makedirs(folder)
                     cls._write_to(profile)
+                    try:
+                        os.remove(cls.portable_settings_path())
+                    except (IOError, OSError):
+                        pass    # unwritable media may refuse this too
             except (IOError, OSError):
                 pass
 
@@ -856,7 +885,16 @@ def parse_inline(text, styles=frozenset(), url=None):
 # Markdown engine: block structure
 # --------------------------------------------------------------------------
 
-_FENCE = re.compile(r"^\s{0,3}(?:```+|~~~+)\s*([A-Za-z0-9_+#-]*)\s*$")
+# The opening fence. Everything after the language is an "info string" -
+# `title="a.js"`, `{.python}`, `js:line-numbers` - and CommonMark's rule is that it
+# may be anything without a backtick in it. Requiring end-of-line straight after
+# the language meant ```js title="a.js" was not a fence at all: the line became
+# ordinary paragraph text and the code under it was rendered as prose, with its
+# markdown characters interpreted. The language is just the leading run of name
+# characters and may be empty.
+#
+# ⚠ Kept identical to FenceStart in Markdown.cs. The two engines must agree.
+_FENCE = re.compile(r"^\s{0,3}(?:```+|~~~+)\s*([A-Za-z0-9_+#-]*)[^`]*$")
 _FENCE_END = re.compile(r"^\s{0,3}(?:```+|~~~+)\s*$")
 _HEADING = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
 _QUOTE = re.compile(r"^\s{0,3}>\s?")
@@ -988,7 +1026,13 @@ def parse_blocks(text, line_offset=0):
             blocks.append({"type": "paragraph", "line": start,
                            "spans": parse_inline("\n".join(paragraph))})
         else:
-            i += 1  # never stall
+            # Never stall - and never silently DISCARD the line either, which a bare
+            # i += 1 would do. Reaching here means _is_block_start claimed a block
+            # begins on this line but no block parser above recognised it, so the
+            # two disagree. Showing the text is always better than losing it.
+            blocks.append({"type": "paragraph", "line": start,
+                           "spans": parse_inline(line.strip())})
+            i += 1
 
     return blocks
 
@@ -1784,6 +1828,11 @@ class MiniPad(object):
         self.preview_job = None
         self.link_count = 0
         self.span_tags = set()
+        # Preview link plumbing. The URL for a tag is looked up at click time, so
+        # the click handler can be installed once per tag name instead of once per
+        # render - see render_spans.
+        self.preview_links = {}
+        self.bound_links = set()
 
         # Preview pane behaviour, chosen from Markdown > Preview Mode.
         #   readonly - render only, no interaction
@@ -2193,9 +2242,32 @@ class MiniPad(object):
         for sequence, action in bindings.items():
             self.root.bind_all(sequence, self._as_handler(action))
 
-    @staticmethod
-    def _as_handler(action):
+    def _as_handler(self, action):
+        """Wrap an accelerator so it only fires for the MAIN window.
+
+        ⚠ bind_all installs a binding on the "all" bindtag, which EVERY widget in
+        the application carries - including every widget inside the About, Font and
+        Appearance dialogs. So with About open and the cursor in its search box,
+        Ctrl+B was inserting ** into the document behind it, F5 was stamping a
+        timestamp into it, Ctrl+A was select-alling the editor instead of the search
+        text, Ctrl+W was closing a tab nobody could see, and Ctrl+Shift+B or F1
+        opened a SECOND About dialog whose widgets overwrote self.help_entry and
+        self.help_text, leaving the first dialog's search wired to a dead widget.
+        Returning "break" meant the focused control never even saw the key.
+
+        Tk has no per-window bind_all, so the window the event actually landed in is
+        checked here instead. Returning None rather than "break" lets the dialog's
+        own bindings run normally.
+        """
         def handler(event):
+            widget = getattr(event, "widget", None)
+            if not hasattr(widget, "winfo_toplevel"):
+                return None
+            try:
+                if widget.winfo_toplevel() is not self.root:
+                    return None
+            except tk.TclError:
+                return None
             action()
             return "break"  # stop Tk's own default handling
         return handler
@@ -2238,13 +2310,40 @@ class MiniPad(object):
 
         # Detect a byte-order mark and keep it, so saving reproduces the original
         # form of the file rather than silently adding or dropping the marker.
+        #
+        # ⚠ THE ENCODING MUST NOT BE GUESSED AS UTF-8 AND FORGIVEN.
+        #
+        # This used to decode with errors="replace" unconditionally, which turns
+        # every byte it cannot understand into U+FFFD. Open a Windows-1252 file
+        # holding a smart quote or a pound sign, save it, and the replacement
+        # character is what got written - the original byte was gone, with no
+        # warning and no way back. Silent data loss is the worst bug a text editor
+        # can have. Strict decoding turns the guess into a question the file answers.
         if data.startswith(codecs.BOM_UTF8):
             self.encoding = "utf-8-sig"
         elif data.startswith(codecs.BOM_UTF16_LE) or data.startswith(codecs.BOM_UTF16_BE):
             self.encoding = "utf-16"
         else:
             self.encoding = "utf-8"
-        raw = data.decode(self.encoding, errors="replace")
+
+        try:
+            raw = data.decode(self.encoding)
+        except UnicodeDecodeError:
+            # Not the encoding we thought. cp1252 maps almost every byte to a
+            # character and back, and latin-1 maps all 256 by definition, so one of
+            # the two round-trips the file instead of approximating it.
+            for fallback in ("cp1252", "latin-1"):
+                try:
+                    raw = data.decode(fallback)
+                    self.encoding = fallback
+                    break
+                except (UnicodeDecodeError, LookupError):
+                    continue
+            else:
+                # Nothing decoded cleanly, so keep the file readable and accept that
+                # saving cannot be lossless. Better than refusing to open it.
+                raw = data.decode("utf-8", errors="replace")
+                self.encoding = "utf-8"
 
         # Remember the file's line-ending style so saving does not rewrite every line.
         self.newline = "\r\n" if "\r\n" in raw else "\n"
@@ -2419,6 +2518,15 @@ class MiniPad(object):
             start = end = self.editor.index(tk.INSERT)
         first = int(start.split(".")[0])
         last = int(end.split(".")[0])
+
+        # ⚠ A selection that ENDS at column 0 does not include that line.
+        #
+        # Selecting whole lines is exactly how you get such a selection, and
+        # without this the marker landed on the following line as well - one line
+        # more than the user highlighted, every time. The Windows build backs off a
+        # character for the same reason (see PrefixLines in MiniPad.cs).
+        if last > first and int(end.split(".")[1]) == 0:
+            last -= 1
 
         for offset, line_number in enumerate(range(first, last + 1)):
             text = marker if not numbered else "%d. " % (offset + 1)
@@ -2923,6 +3031,9 @@ class MiniPad(object):
         try:
             self.preview.delete("1.0", tk.END)
             self.link_count = 0
+            # The tag NAMES are reused across renders, so the URLs behind them must
+            # not be: a stale entry would send a click to a link that is gone.
+            self.preview_links.clear()
             if editable:
                 self.preview.insert("1.0", self.editor.get("1.0", "end-1c"))
                 self.style_source()
@@ -3085,23 +3196,37 @@ class MiniPad(object):
                 self.link_count += 1
                 link_tag = "link%d" % self.link_count
                 self.preview.tag_configure(link_tag)
-                self.preview.tag_bind(link_tag, "<Button-1>", self._open_link(span.url))
-                self.preview.tag_bind(link_tag, "<Enter>",
-                                      lambda event: self.preview.configure(cursor="hand2"))
-                self.preview.tag_bind(link_tag, "<Leave>",
-                                      lambda event: self.preview.configure(cursor="arrow"))
+                # ⚠ ONE URL LOOKUP, NOT ONE CLOSURE PER RENDER.
+                #
+                # Every tag_bind registers a new Tcl command, and tkinter only frees
+                # those when the widget is destroyed - rebinding does not release the
+                # old one. The preview re-renders on a 450 ms debounce while you
+                # type, so a document with 50 links used to register 150 fresh Tcl
+                # commands every render and never let any of them go.
+                #
+                # Now the URL lives in a dict and the three bindings are installed
+                # once per tag NAME. Tag names restart from link1 on every render, so
+                # the set of bound names stops growing at the busiest render's count.
+                self.preview_links[link_tag] = span.url
+                if link_tag not in self.bound_links:
+                    self.bound_links.add(link_tag)
+                    self.preview.tag_bind(link_tag, "<Button-1>",
+                                          self._link_click(link_tag))
+                    self.preview.tag_bind(link_tag, "<Enter>",
+                                          lambda event: self.preview.configure(cursor="hand2"))
+                    self.preview.tag_bind(link_tag, "<Leave>",
+                                          lambda event: self.preview.configure(
+                                              cursor="xterm" if self.preview_mode == "editable"
+                                              else "arrow"))
                 tags.append(link_tag)
             self.insert(span.text, tuple(tags))
 
-    @staticmethod
-    def _open_link(url):
+    def _link_click(self, link_tag):
+        """Resolve the URL at click time, so one binding serves every render."""
         def handler(event):
-            if re.match(r"^\s*(?:javascript|vbscript|data)\s*:", url, re.I):
-                return
-            try:
-                webbrowser.open(url)
-            except Exception:
-                pass
+            url = self.preview_links.get(link_tag)
+            if url:
+                open_in_browser(url)
         return handler
 
     def insert(self, text, tags=()):
@@ -3146,7 +3271,11 @@ class MiniPad(object):
 
         self.help_entry = tk.Entry(bar, width=34)
         self.help_entry.pack(side=tk.LEFT, padx=(8, 8))
-        self.help_entry.bind("<KeyRelease>", lambda event: self.help_search(True))
+        # Debounced, not immediate. Searching on every keystroke means searching for
+        # "t", then "th", then "the" - and the one-letter search is the expensive
+        # one: a single letter matches about 5,000 times in a 56 KB manual, and each
+        # match is a Tcl search plus a tag_add. See help_search.
+        self.help_entry.bind("<KeyRelease>", lambda event: self.help_search_soon())
         self.help_entry.bind("<Return>", lambda event: self.help_step(1))
         self.help_entry.bind("<Shift-Return>", lambda event: self.help_step(-1))
         self.help_entry.bind("<Escape>", lambda event: self.help_clear())
@@ -3154,8 +3283,10 @@ class MiniPad(object):
         tk.Button(bar, text="Previous", command=lambda: self.help_step(-1)).pack(side=tk.LEFT)
         tk.Button(bar, text="Next", command=lambda: self.help_step(1)).pack(side=tk.LEFT, padx=4)
         self.help_result = tk.Label(bar, text="Enter to jump, Shift+Enter to go back",
-                                    fg=Theme.ui_dim())
-        self.help_result.pack(side=tk.LEFT, padx=8)
+                                    anchor=tk.W, fg=Theme.ui_dim())
+        # fill/expand so it uses whatever width is left instead of being clipped by
+        # the dialog edge when the message grows.
+        self.help_result.pack(side=tk.LEFT, padx=8, fill=tk.X, expand=True)
 
         body = tk.Frame(wrapper)
         body.pack(fill=tk.BOTH, expand=True)
@@ -3184,6 +3315,26 @@ class MiniPad(object):
         self.help_matches = []
         self.help_index = -1
         self.help_query = ""
+        self.help_job = None
+        self.help_highlighted_all = False
+
+    # Above this many matches the manual is not painted yellow end to end. The
+    # COUNT stays exact - only the highlighting is capped, because thousands of
+    # tag_add calls per keystroke is what made the dialog freeze.
+    HELP_HIGHLIGHT_CAP = 400
+
+    def help_search_soon(self):
+        """Search once typing pauses, not once per keystroke."""
+        if self.help_job is not None:
+            try:
+                self.help_text.after_cancel(self.help_job)
+            except tk.TclError:
+                pass
+        self.help_job = self.help_text.after(200, self._help_search_now)
+
+    def _help_search_now(self):
+        self.help_job = None
+        self.help_search(True)
 
     def render_manual(self):
         """Lay the manual out for reading: headings weighted, code monospaced."""
@@ -3216,17 +3367,24 @@ class MiniPad(object):
         self.help_query = query
 
         if query:
+            # Finding the matches is cheap; PAINTING them is not. So the two are
+            # separate steps, and only the painting is capped.
             start = "1.0"
+            length = tk.IntVar()
             while True:
-                length = tk.IntVar()
                 position = self.help_text.search(query, start, stopindex=tk.END,
                                                  nocase=True, count=length)
                 if not position or not length.get():
                     break
                 end = "%s+%dc" % (position, length.get())
-                self.help_text.tag_add("hit", position, end)
                 self.help_matches.append((position, end))
                 start = end
+
+        self.help_highlighted_all = (
+            0 < len(self.help_matches) <= self.HELP_HIGHLIGHT_CAP)
+        if self.help_highlighted_all:
+            for position, end in self.help_matches:
+                self.help_text.tag_add("hit", position, end)
 
         if jump and self.help_matches:
             self.help_index = 0
@@ -3235,6 +3393,13 @@ class MiniPad(object):
 
     def help_step(self, direction):
         if self.help_entry.get() != self.help_query:
+            # Enter should not have to wait out the debounce.
+            if self.help_job is not None:
+                try:
+                    self.help_text.after_cancel(self.help_job)
+                except tk.TclError:
+                    pass
+                self.help_job = None
             self.help_search(True)
             return "break"
         if not self.help_matches:
@@ -3259,8 +3424,16 @@ class MiniPad(object):
         elif not self.help_matches:
             text, colour = "no matches", Theme.bad()
         else:
-            text = "%d of %d match%s" % (self.help_index + 1, len(self.help_matches),
-                                         "" if len(self.help_matches) == 1 else "es")
+            # Say when the highlighting was capped, so it does not look like most
+            # matches were missed. The count itself is always exact.
+            #
+            # ⚠ Kept SHORT on purpose. The first wording ran off the right edge of
+            # the dialog - the same trap as the Donate tab's caption, and equally
+            # invisible until someone screenshots it.
+            text = "%d of %d match%s%s" % (
+                self.help_index + 1, len(self.help_matches),
+                "" if len(self.help_matches) == 1 else "es",
+                "" if self.help_highlighted_all else " (current only)")
             colour = Theme.ui_dim()
         self.help_result.configure(text=text, fg=colour)
 
@@ -3619,7 +3792,9 @@ class MiniPad(object):
             "  Rendering differs from the Windows build by necessity: Windows hosts",
             "  MSHTML (the Internet Explorer engine) in a WebBrowser control, while",
             "  this build styles the Markdown directly with Tk text tags. Exported",
-            "  HTML is identical from either build.",
+            "  HTML shares the same engine, stylesheet and theme, so a page from",
+            "  either build looks the same - though not byte for byte: Windows also",
+            "  stamps data-line attributes its preview needs, and an IE meta tag.",
             "",
             "FEATURES",
             "  Text       open, save, save as, command-line path, encoding and",
@@ -4144,11 +4319,16 @@ FALEOFAZ_ENQUIRIES = (
 # NOTE ON LINE BREAKS, and why these differ from About.cs: the Windows build
 # paints these into fixed Labels, which do not wrap, so its copies carry hard
 # breaks. Here they go into a wrap=WORD Text widget that breaks them to fit
-# whatever width the dialog is. A hard newline in this build is therefore a bug,
-# not a formatting choice - it forces a break mid-sentence and adds paragraph
-# spacing in the middle of a quote. (Caught by screenshotting the tab, which is
-# the only thing that can see it.) THE WORDS must match About.cs; the whitespace
+# whatever width the dialog is. THE WORDS must match About.cs; the whitespace
 # deliberately does not.
+#
+# A hard newline MID-SENTENCE is therefore a bug in this build, not a formatting
+# choice - it forces a break where the text should flow and adds paragraph spacing
+# inside a sentence. (Caught by screenshotting the tab, which is the only thing
+# that can see it.) A newline BETWEEN sentences is fine and is used on purpose in
+# FALEOFAZ_STORY and FALEOFAZ_STORY2, where it separates paragraphs: the "para" tag
+# carries spacing3, so each half gets its own gap. The distinction is where the
+# break falls, not whether one exists.
 # Kept, because it is a fact about Venmo rather than a claim about FaleOfaz, and
 # it stops a donor assuming paperwork arrived when it did not.
 FALEOFAZ_RECEIPTS = (
@@ -4200,12 +4380,23 @@ FALEOFAZ_WHY = (
 FALEOFAZ_PERSONAL_NOTE = ""
 
 
+_UNSAFE_SCHEME = re.compile(r"^\s*(?:javascript|vbscript|data)\s*:", re.I)
+
+
 def open_in_browser(url):
     """Hand a URL to the desktop's own browser.
 
     MiniPad never fetches anything itself. It asks the desktop to open the
     address, which is why the Donate tab adds no network code to the program.
+
+    ⚠ The scheme guard belongs HERE, not at the call sites. The Donate tab passes
+    constants and is safe either way, but preview links come out of whatever
+    document is open, and that is not the program's text. This used to be checked
+    only inside the preview's own click handler; centralising it means a future
+    caller cannot forget it.
     """
+    if not url or _UNSAFE_SCHEME.match(url):
+        return
     try:
         webbrowser.open(url)
     except Exception as exc:                                    # noqa: BLE001

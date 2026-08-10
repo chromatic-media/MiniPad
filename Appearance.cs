@@ -138,18 +138,24 @@ public class AppearanceForm : Form
         zoomBar.SmallChange = 10;
         zoomBar.LargeChange = 25;
         zoomBar.Location = new Point(14, 26);
-        zoomBar.Width = 380;
+        zoomBar.Width = 350;
         zoomBar.Scroll += new EventHandler(OnZoomScroll);
 
+        // ⚠ FIXED WIDTH, NOT AutoSize. An autosizing bold label showing "150%" is
+        // 41px wide and started at x=404, so it ran 5px under the 100% button at
+        // x=440 - at every three-digit zoom, which is most of the 50-300 range.
+        // Reserving the space is what stops the two ever meeting again.
         zoomLabel = new Label();
-        zoomLabel.AutoSize = true;
+        zoomLabel.AutoSize = false;
+        zoomLabel.Size = new Size(48, 22);
+        zoomLabel.TextAlign = ContentAlignment.MiddleCenter;
         zoomLabel.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-        zoomLabel.Location = new Point(404, 34);
+        zoomLabel.Location = new Point(370, 32);
 
         Button zoomReset = new Button();
         zoomReset.Text = "100%";
-        zoomReset.Size = new Size(70, 26);
-        zoomReset.Location = new Point(440, 30);
+        zoomReset.Size = new Size(76, 26);
+        zoomReset.Location = new Point(426, 30);
         zoomReset.Click += delegate
         {
             Theme.SetZoom(100);
@@ -263,14 +269,15 @@ public class AppearanceForm : Form
 
     private void PickColour(bool background)
     {
-        ColorDialog picker = new ColorDialog();
-        picker.FullOpen = true;
-        picker.Color = background ? Theme.EditorBack : Theme.EditorText;
-        if (picker.ShowDialog(this) != DialogResult.OK) return;
+        using (ColorDialog picker = new ColorDialog())
+        {
+            picker.FullOpen = true;
+            picker.Color = background ? Theme.EditorBack : Theme.EditorText;
+            if (picker.ShowDialog(this) != DialogResult.OK) return;
 
-        if (background) Theme.SetCustomBack(picker.Color);
-        else Theme.SetCustomText(picker.Color);
-
+            if (background) Theme.SetCustomBack(picker.Color);
+            else Theme.SetCustomText(picker.Color);
+        }
         Refresh(true);
     }
 

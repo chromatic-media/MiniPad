@@ -214,16 +214,27 @@ public class MainForm : Form
         // There is always at least one document, so `current` is never null.
         AddDocument(NewDocument());
 
+        // ⚠ THE REMEMBERED MODE IS RESTORED FIRST, AND THE ORDER IS THE POINT.
+        //
+        // EnablePreview ends by calling UpdateModeLabel, which reads previewMode.
+        // Restoring the mode afterwards left the status bar and the pane caption
+        // reporting "read-only" while the pane was in fact editable - the
+        // behaviour was right and only the label lied, which is the hardest kind
+        // of wrong to notice. Nothing called UpdateModeLabel again.
+        //
+        // Set without going through SetPreviewMode, which would turn the pane on
+        // as a side effect - wrong when the user last left it hidden - and would
+        // re-save the value we just read.
+        int remembered = Theme.PreviewMode;
+        if (remembered < 0 || remembered >= modeItems.Length) remembered = 0;
+        previewMode = (PreviewMode)remembered;
+        for (int index = 0; index < modeItems.Length; index++)
+            modeItems[index].Checked = index == remembered;
+
         // The preview starts showing unless it was last turned off, so it is
         // found rather than hunted for. The splitter has no width until Shown,
         // which is where the first render happens.
         EnablePreview(Theme.PreviewOn, false);
-        // Restore the remembered preview mode without going through SetPreviewMode,
-        // which would turn the pane on as a side effect - wrong when the user last
-        // left it hidden, and it would also re-save what we just read.
-        previewMode = (PreviewMode)Theme.PreviewMode;
-        for (int index = 0; index < modeItems.Length; index++)
-            modeItems[index].Checked = index == Theme.PreviewMode;
         UpdatePortableItem();
         ApplyTheme();
 
@@ -274,7 +285,9 @@ public class MainForm : Form
     {
         box.BackColor = Theme.EditorBack;
         box.ForeColor = Theme.EditorText;
+        Font previous = box.Font;
         box.Font = new Font(baseFontFamily, Theme.ScaleFont(baseFontSize));
+        DisposeIfOwned(previous);
     }
 
     // The lowest number not already taken, so closing "Untitled 2" frees the name.
@@ -494,14 +507,18 @@ public class MainForm : Form
         AddDocument(NewDocument());
     }
 
+    // Every common dialog here is in a `using`. They are IDisposable components
+    // holding native resources, and none of them used to be disposed.
     private void OpenFile()
     {
-        OpenFileDialog dialog = new OpenFileDialog();
-        dialog.Filter = FileFilter;
-        dialog.Multiselect = true;
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
-        foreach (string path in dialog.FileNames)
-            LoadFile(path);
+        using (OpenFileDialog dialog = new OpenFileDialog())
+        {
+            dialog.Filter = FileFilter;
+            dialog.Multiselect = true;
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            foreach (string path in dialog.FileNames)
+                LoadFile(path);
+        }
     }
 
     private void LoadFile(string path)
@@ -521,10 +538,38 @@ public class MainForm : Form
         Encoding detected;
         try
         {
-            using (StreamReader reader = new StreamReader(path, new UTF8Encoding(false), true))
+            // ⚠ THE ENCODING MUST NOT BE GUESSED AS UTF-8 AND FORGIVEN.
+            //
+            // This used to read through a NON-throwing UTF8Encoding, which turns
+            // every byte it cannot understand into U+FFFD instead of failing. Open
+            // a Windows-1252 file holding a smart quote or a pound sign, save it,
+            // and the replacement character is what got written - the original
+            // byte was gone, with no warning and no way back. Silent data loss in
+            // a text editor is the worst bug it can have.
+            //
+            // Strict UTF-8 turns that guess into a question the file can answer.
+            using (StreamReader reader = new StreamReader(path, new UTF8Encoding(false, true), true))
             {
                 content = reader.ReadToEnd();
                 detected = reader.CurrentEncoding;
+            }
+        }
+        catch (DecoderFallbackException)
+        {
+            // Not UTF-8, so treat it as the system's ANSI code page: every byte
+            // maps to a character and back, so saving reproduces the original
+            // bytes rather than a lossy approximation of them. This is also what
+            // Notepad does with a file that carries no BOM and is not valid UTF-8.
+            try
+            {
+                detected = Encoding.Default;
+                content = File.ReadAllText(path, detected);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Could not open the file:\r\n\r\n" + ex.Message,
+                    "MiniPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
         }
         catch (Exception ex)
@@ -571,22 +616,24 @@ public class MainForm : Form
 
     private bool SaveAs()
     {
-        SaveFileDialog dialog = new SaveFileDialog();
-        dialog.Filter = FileFilter;
-        dialog.DefaultExt = "txt";
-        if (currentPath != null)
+        using (SaveFileDialog dialog = new SaveFileDialog())
         {
-            dialog.InitialDirectory = Path.GetDirectoryName(currentPath);
-            dialog.FileName = Path.GetFileName(currentPath);
-            if (IsMarkdownPath(currentPath)) dialog.FilterIndex = 2;
+            dialog.Filter = FileFilter;
+            dialog.DefaultExt = "txt";
+            if (currentPath != null)
+            {
+                dialog.InitialDirectory = Path.GetDirectoryName(currentPath);
+                dialog.FileName = Path.GetFileName(currentPath);
+                if (IsMarkdownPath(currentPath)) dialog.FilterIndex = 2;
+            }
+            else
+            {
+                dialog.FileName = "Untitled.txt";
+            }
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return false;
+            return WriteFile(dialog.FileName);
         }
-        else
-        {
-            dialog.FileName = "Untitled.txt";
-        }
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-            return false;
-        return WriteFile(dialog.FileName);
     }
 
     private void SaveAll()
@@ -659,22 +706,24 @@ public class MainForm : Form
 
     private void ExportHtml()
     {
-        SaveFileDialog dialog = new SaveFileDialog();
-        dialog.Filter = "HTML files (*.html)|*.html|All files (*.*)|*.*";
-        dialog.DefaultExt = "html";
-        dialog.FileName = (currentPath == null ? "Untitled" : Path.GetFileNameWithoutExtension(currentPath)) + ".html";
-        if (currentPath != null)
-            dialog.InitialDirectory = Path.GetDirectoryName(currentPath);
-        if (dialog.ShowDialog(this) != DialogResult.OK)
-            return;
-        try
+        using (SaveFileDialog dialog = new SaveFileDialog())
         {
-            File.WriteAllText(dialog.FileName, Markdown.ToHtml(editor.Text, Theme.PreviewCss()), new UTF8Encoding(false));
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, "Could not export:\r\n\r\n" + ex.Message,
-                "MiniPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            dialog.Filter = "HTML files (*.html)|*.html|All files (*.*)|*.*";
+            dialog.DefaultExt = "html";
+            dialog.FileName = (currentPath == null ? "Untitled" : Path.GetFileNameWithoutExtension(currentPath)) + ".html";
+            if (currentPath != null)
+                dialog.InitialDirectory = Path.GetDirectoryName(currentPath);
+            if (dialog.ShowDialog(this) != DialogResult.OK)
+                return;
+            try
+            {
+                File.WriteAllText(dialog.FileName, Markdown.ToHtml(editor.Text, Theme.PreviewCss()), new UTF8Encoding(false));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Could not export:\r\n\r\n" + ex.Message,
+                    "MiniPad", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
     }
 
@@ -1003,7 +1052,20 @@ public class MainForm : Form
 
         if (html == null) return;
 
-        string markdown = HtmlToMarkdown.Convert(html).Replace("\r\n", "\n");
+        // The converter is a tolerant hand-written parser fed markup that MSHTML
+        // rewrote as the user typed. Everything else risky in this file is
+        // guarded; this was not, and an exception here would take the whole editor
+        // down mid-sentence. Abandoning one sync is harmless - the pane still
+        // holds the edit, and the next keystroke tries again.
+        string markdown;
+        try
+        {
+            markdown = HtmlToMarkdown.Convert(html).Replace("\r\n", "\n");
+        }
+        catch
+        {
+            return;
+        }
         string existing = target.Editor.Text.Replace("\r\n", "\n");
         if (markdown.TrimEnd() == existing.TrimEnd()) return;
 
@@ -1202,18 +1264,39 @@ public class MainForm : Form
 
     private void ChooseFont()
     {
-        FontDialog dialog = new FontDialog();
-        dialog.Font = new Font(baseFontFamily, baseFontSize);
-        dialog.ShowEffects = false;
-        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        using (FontDialog dialog = new FontDialog())
+        {
+            using (Font seed = new Font(baseFontFamily, baseFontSize))
+                dialog.Font = seed;
+            dialog.ShowEffects = false;
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
 
-        // Store it unzoomed so zooming stays a multiplier rather than compounding.
-        baseFontFamily = dialog.Font.FontFamily.Name;
-        baseFontSize = dialog.Font.Size;
+            // Store it unzoomed so zooming stays a multiplier rather than compounding.
+            baseFontFamily = dialog.Font.FontFamily.Name;
+            baseFontSize = dialog.Font.Size;
+        }
         Font chosen = new Font(baseFontFamily, Theme.ScaleFont(baseFontSize));
         foreach (Document document in documents)
+        {
+            Font previous = document.Editor.Font;
             document.Editor.Font = chosen;
+            DisposeIfOwned(previous);
+        }
         Theme.SetFont(baseFontFamily, baseFontSize);
+    }
+
+    // A Font handed to a control is not disposed by that control, so replacing one
+    // leaks the old handle. StyleEditor runs on every theme change and every zoom
+    // step, so this was a Font per document per keystroke of Ctrl+Plus.
+    //
+    // ⚠ Never dispose the ambient/default font - it is shared and still in use
+    // elsewhere. Only fonts this class created are ours to free.
+    private static void DisposeIfOwned(Font font)
+    {
+        if (font == null) return;
+        if (font == DefaultFont || font == SystemFonts.DefaultFont) return;
+        try { font.Dispose(); }
+        catch { }
     }
 
     private static bool FontFamilyExists(string name)

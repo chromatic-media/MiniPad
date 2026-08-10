@@ -171,8 +171,45 @@ public static class HtmlToMarkdown
         wrapper.Children.AddRange(run);
         run.Clear();
 
-        string text = Inline(wrapper).Trim();
+        string text = EscapeBlockStart(Inline(wrapper).Trim());
         if (text.Length > 0) output.Append(text).Append("\n\n");
+    }
+
+    // A paragraph that begins with a block marker is re-parsed as that block, so
+    // prose typed in the preview comes back as something else: "1. hello" becomes
+    // a numbered list, "# hi" a heading, "> quoted" a blockquote.
+    //
+    // This cannot live in EscapeMarkdown. That runs on text NODES, which know
+    // nothing about where they will land - only here is a whole line in hand.
+    //
+    // ⚠ `*` and `_` are deliberately absent: EscapeMarkdown already escapes them,
+    // and escaping twice leaves a literal backslash on the page.
+    private static readonly Regex BlockMarker = new Regex(@"^(\s{0,3})([#>+-])(\s|$)");
+    private static readonly Regex OrderedMarker = new Regex(@"^(\s{0,3})(\d{1,9})([.)])(\s|$)");
+    private static readonly Regex DashRule = new Regex(@"^\s{0,3}(?:-\s*){3,}$");
+
+    private static string EscapeBlockStart(string text)
+    {
+        string[] lines = text.Split('\n');
+        for (int n = 0; n < lines.Length; n++)
+        {
+            Match ordered = OrderedMarker.Match(lines[n]);
+            if (ordered.Success)
+            {
+                // Escape the SEPARATOR, not the digits. "1\." is the form Markdown
+                // understands; "\1." would show a literal backslash, because a
+                // digit is not an escapable character.
+                int at = ordered.Groups[1].Value.Length + ordered.Groups[2].Value.Length;
+                lines[n] = lines[n].Substring(0, at) + "\\" + lines[n].Substring(at);
+                continue;
+            }
+            if (BlockMarker.IsMatch(lines[n]) || DashRule.IsMatch(lines[n]))
+            {
+                int at = lines[n].Length - lines[n].TrimStart().Length;
+                lines[n] = lines[n].Substring(0, at) + "\\" + lines[n].Substring(at);
+            }
+        }
+        return string.Join("\n", lines);
     }
 
     private static void Blocks(Node parent, StringBuilder output)
@@ -203,7 +240,7 @@ public static class HtmlToMarkdown
 
                 case "p":
                 case "div":
-                    string paragraph = Inline(child).Trim();
+                    string paragraph = EscapeBlockStart(Inline(child).Trim());
                     if (paragraph.Length > 0) output.Append(paragraph).Append("\n\n");
                     break;
 
@@ -240,7 +277,7 @@ public static class HtmlToMarkdown
                     break;
 
                 default:
-                    string fallback = Inline(child).Trim();
+                    string fallback = EscapeBlockStart(Inline(child).Trim());
                     if (fallback.Length > 0) output.Append(fallback).Append("\n\n");
                     break;
             }
@@ -480,9 +517,14 @@ public static class HtmlToMarkdown
         text = Regex.Replace(text, @"&#(\d{1,7});", delegate(Match match)
         {
             int code;
-            if (int.TryParse(match.Groups[1].Value, out code) && code > 0 && code < 0x10FFFF)
-                return char.ConvertFromUtf32(code);
-            return match.Value;
+            if (!int.TryParse(match.Groups[1].Value, out code)) return match.Value;
+            // ⚠ ConvertFromUtf32 THROWS for the surrogate range 0xD800-0xDFFF, and
+            // the old bound (code < 0x10FFFF) let those straight through. Half a
+            // surrogate pair is not a character, so leave it as written text.
+            if (code <= 0 || code > 0x10FFFF) return match.Value;
+            if (code >= 0xD800 && code <= 0xDFFF) return match.Value;
+            try { return char.ConvertFromUtf32(code); }
+            catch (ArgumentOutOfRangeException) { return match.Value; }
         });
         return text.Replace("&amp;", "&"); // last, so &amp;lt; survives as &lt;
     }

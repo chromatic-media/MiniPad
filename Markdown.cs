@@ -10,6 +10,16 @@ using System.Text.RegularExpressions;
 
 public static class Markdown
 {
+    // The fallback stylesheet, used only when a caller passes no stylesheet of its
+    // own. Nothing in MiniPad does - the editor and the HTML export both hand over
+    // Theme.PreviewCss(), generated from the palette in force - so this exists to
+    // keep ToHtml usable on its own rather than to style anything you will see.
+    //
+    // ⚠ A DARK TWIN OF THIS AND TWO ToHtml OVERLOADS WERE REMOVED. They were
+    // unreachable: the only live path is ToHtml(markdown, css). The dark copy had
+    // drifted to carry zebra-striped table rows that the real generated stylesheet
+    // does not, so the dead code described a program that no longer existed - which
+    // is worse than no code, because it reads like documentation.
     private const string Css =
         "body{font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;" +
         "color:#24292f;background:#ffffff;margin:0;padding:24px 28px;}" +
@@ -26,39 +36,8 @@ public static class Markdown
         "table{border-collapse:collapse;margin:0 0 16px;}" +
         "th,td{border:1px solid #d0d7de;padding:6px 12px;}" +
         "th{background:#f6f8fa;font-weight:600;}" +
-        "tr:nth-child(even) td{background:#fbfcfd;}" +
         "hr{border:0;border-top:1px solid #d8dee4;margin:22px 0;}" +
         "a{color:#0969da;} img{max-width:100%;} del{color:#82878d;}";
-
-    private const string DarkCss =
-        "body{font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;" +
-        "color:#e2e5e9;background:#181a1c;margin:0;padding:24px 28px;}" +
-        "h1,h2,h3,h4,h5,h6{margin:24px 0 12px;line-height:1.25;font-weight:600;}" +
-        "h1{font-size:1.9em;border-bottom:1px solid #3c3f44;padding-bottom:8px;}" +
-        "h2{font-size:1.45em;border-bottom:1px solid #3c3f44;padding-bottom:6px;}" +
-        "h3{font-size:1.2em;} h4{font-size:1em;} h5,h6{font-size:.9em;color:#969ca5;}" +
-        "p{margin:0 0 14px;} ul,ol{margin:0 0 14px;padding-left:26px;} li{margin:3px 0;}" +
-        "code{font-family:Consolas,monospace;font-size:.9em;background:#2b2d31;" +
-        "padding:2px 5px;border-radius:4px;}" +
-        "pre{background:#202225;border:1px solid #3c3f44;border-radius:6px;padding:12px 14px;" +
-        "overflow:auto;} pre code{background:none;padding:0;font-size:.88em;}" +
-        "blockquote{margin:0 0 14px;padding:2px 14px;color:#969ca5;border-left:4px solid #4a4f57;}" +
-        "table{border-collapse:collapse;margin:0 0 16px;}" +
-        "th,td{border:1px solid #3c3f44;padding:6px 12px;}" +
-        "th{background:#242629;font-weight:600;}" +
-        "tr:nth-child(even) td{background:#1e2023;}" +
-        "hr{border:0;border-top:1px solid #3c3f44;margin:22px 0;}" +
-        "a{color:#6cb6ff;} img{max-width:100%;} del{color:#7d838c;}";
-
-    public static string ToHtml(string markdown)
-    {
-        return ToHtml(markdown, false);
-    }
-
-    public static string ToHtml(string markdown, bool dark)
-    {
-        return Render(markdown, dark ? DarkCss : Css);
-    }
 
     // Used by the editor, which hands over a stylesheet generated from the palette.
     public static string ToHtml(string markdown, string css)
@@ -82,6 +61,29 @@ public static class Markdown
         return " data-line=\"" + line + "\"";
     }
 
+    // The opening fence, and the ONE definition of it.
+    //
+    // Everything after the language is an "info string" - `title="a.js"`,
+    // `{.python}`, `:line-numbers` - and it must be allowed, not just tolerated.
+    // Requiring end-of-line straight after the language is what made
+    // ```js title="a.js" match IsBlockStart but not this pattern, so the
+    // paragraph loop consumed nothing, the "never stall" i++ threw the line away,
+    // and the code inside was rendered as prose with its markdown interpreted.
+    //
+    // ⚠ IsBlockStart MUST test with this same regex. It used to carry its own
+    // prefix-only copy, and that disagreement was the entire bug.
+    // The trailing `[^`]*` is CommonMark's actual rule: the info string is
+    // anything after the fence that contains no backtick. That covers
+    // `js title="a.js"`, `{.python}`, `python {highlight}` and `js:line-numbers`
+    // alike. The LANGUAGE is just the leading run of name characters, which may be
+    // empty - `{.python}` names a language MiniPad has no highlighting for anyway,
+    // so recognising the block matters and naming it does not.
+    private static readonly Regex FenceStart =
+        new Regex(@"^\s{0,3}(?:```+|~~~+)\s*([A-Za-z0-9_+#-]*)[^`]*$");
+
+    private static readonly Regex FenceEnd =
+        new Regex(@"^\s{0,3}(?:```+|~~~+)\s*$");
+
     // ---- block level ----
 
     private static string Blocks(string text, int lineOffset)
@@ -100,13 +102,13 @@ public static class Markdown
 
             if (line.Trim().Length == 0) { i++; continue; }
 
-            Match fence = Regex.Match(line, @"^\s{0,3}(?:```+|~~~+)\s*([A-Za-z0-9_+#-]*)\s*$");
+            Match fence = FenceStart.Match(line);
             if (fence.Success)
             {
                 string language = fence.Groups[1].Value;
                 i++;
                 StringBuilder code = new StringBuilder();
-                while (i < lines.Length && !Regex.IsMatch(lines[i], @"^\s{0,3}(?:```+|~~~+)\s*$"))
+                while (i < lines.Length && !FenceEnd.IsMatch(lines[i]))
                 {
                     code.Append(lines[i]).Append('\n');
                     i++;
@@ -177,7 +179,15 @@ public static class Markdown
             }
             else
             {
-                i++; // never stall
+                // Never stall - and never silently DISCARD the line either, which
+                // is what a bare i++ did here. Reaching this point means
+                // IsBlockStart claimed a block starts on this line but no block
+                // parser above recognised it, so the two disagree. Emitting the
+                // text is always better than losing it: a wrong-looking paragraph
+                // is visible and reportable, a vanished line is neither.
+                html.Append("<p").Append(anchor).Append('>')
+                    .Append(Inline(line.Trim())).Append("</p>\n");
+                i++;
             }
         }
 
@@ -187,7 +197,8 @@ public static class Markdown
     private static bool IsBlockStart(string[] lines, int i)
     {
         string line = lines[i];
-        if (Regex.IsMatch(line, @"^\s{0,3}(?:```+|~~~+)")) return true;
+        // The SAME test the fence parser uses, not a prefix-only lookalike.
+        if (FenceStart.IsMatch(line) || FenceEnd.IsMatch(line)) return true;
         if (Regex.IsMatch(line, @"^\s{0,3}#{1,6}\s")) return true;
         if (Regex.IsMatch(line, @"^\s{0,3}>")) return true;
         if (IsHorizontalRule(line)) return true;

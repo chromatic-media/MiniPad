@@ -6,7 +6,7 @@ It opens and saves ordinary `.txt` and `.md` files, and it never changes anythin
 file that you did not change yourself. No network access, no telemetry, no installer, and
 no third-party libraries — it calls only what the operating system already provides.
 
-**Version 1.10**
+**Version 1.11**
 
 ---
 
@@ -14,7 +14,7 @@ no third-party libraries — it calls only what the operating system already pro
 
 | Build | File | Requires |
 |---|---|---|
-| **Windows** | `MiniPad.exe` | Nothing — a self-contained 306 KB executable (.NET Framework 4, built into Windows 8 and newer) |
+| **Windows** | `MiniPad.exe` | Nothing — a self-contained 308 KB executable (.NET Framework 4, built into Windows 8 and newer) |
 | **Linux** | `minipad.py` | Python 3 and `python3-tk` |
 
 Both read and write the same files, render the same Markdown, export identical HTML, and

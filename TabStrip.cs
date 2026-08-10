@@ -200,18 +200,24 @@ public class TabStrip : Control
             g.DrawLine(pen, 0, Height - 1, Width, Height - 1);
 
         // Tabs are clipped to their viewport so none can bleed over an arrow.
-        Region saved = g.Clip;
-        g.SetClip(ViewportBounds());
-        using (Font font = TabFont())
+        //
+        // ⚠ `g.Clip` is a GETTER THAT ALLOCATES - it hands back a new Region that
+        // the caller owns. Assigning it back does not dispose it, so the old code
+        // leaked one Region per paint, and paints happen on every hover move.
+        using (Region saved = g.Clip)
         {
-            for (int index = 0; index < labels.Count; index++)
+            g.SetClip(ViewportBounds());
+            using (Font font = TabFont())
             {
-                Rectangle bounds = TabBounds(index);
-                if (bounds.Right < TabsLeft || bounds.Left > TabsLeft + ViewportWidth) continue;
-                PaintTab(g, font, index, bounds, Theme.EditorBack, border);
+                for (int index = 0; index < labels.Count; index++)
+                {
+                    Rectangle bounds = TabBounds(index);
+                    if (bounds.Right < TabsLeft || bounds.Left > TabsLeft + ViewportWidth) continue;
+                    PaintTab(g, font, index, bounds, Theme.EditorBack, border);
+                }
             }
+            g.Clip = saved;
         }
-        g.Clip = saved;
 
         if (Overflowing)
         {

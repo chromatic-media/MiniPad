@@ -1,6 +1,6 @@
 # MiniPad Owner's Manual
 
-**Version 1.10** — 8/6/26
+**Version 1.11** — 8/9/26
 Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic).
 
 Open this file in MiniPad and press **F9** to read it as rendered Markdown, or press
@@ -48,11 +48,11 @@ It ships as two programs built from one design:
 
 | Build | File | Needs |
 |---|---|---|
-| Windows | `MiniPad.exe` | Nothing — one self-contained 306 KB executable |
+| Windows | `MiniPad.exe` | Nothing — one self-contained 308 KB executable |
 | Linux | `minipad.py` | Python 3 and `python3-tk` |
 
-Both read and write the same files, render the same Markdown, and export identical HTML.
-Neither one uses the network, and neither installs anything.
+Both read and write the same files, render the same Markdown, and export HTML that looks
+the same from either build. Neither one uses the network, and neither installs anything.
 
 The Windows executable carries everything inside it: the program, its notepad icon at
 eight sizes, this manual and the license. Nothing else has to sit beside it.
@@ -380,6 +380,16 @@ Setext headings (underlined with `===`), reference-style links, footnotes, task 
 checkboxes, definition lists, inline HTML, and automatic linking of bare URLs. Raw HTML in
 your document is shown as text, not rendered — deliberately, so a Markdown file cannot
 inject markup into the preview.
+
+**Indented code blocks** are not supported either — the four-space form. Indentation already
+means list nesting and list continuation here, and a block that could be either is worse than
+a block that has one meaning. Use a fenced block instead; fences are unambiguous, and they
+can name a language.
+
+**Fenced blocks accept anything after the language.** ` ```js `, ` ```js title="a.js" `,
+` ```{.python} ` and ` ```js:line-numbers ` all open a code block. Everything after the
+language name is ignored rather than rejected, so a file written for another tool still
+renders as code here.
 
 ---
 
@@ -837,7 +847,11 @@ library, so instead of a lossy imitation the Linux pane shows your Markdown sour
 headings, bold, code and quotes styled in place. Editing it is lossless by construction:
 the text in that pane *is* the file.
 
-Exported HTML is identical from either build.
+Exported HTML comes from the same Markdown engine and the same generated stylesheet in both
+builds, so a page exported from either looks the same and opens anywhere. It is not byte for
+byte the same file: the Windows build also stamps a `data-line` attribute on every block —
+its preview needs them to jump from the rendering to the source — and a meta tag for the IE
+engine. Neither has any use in the Linux build, so neither is written there.
 
 ---
 
@@ -1066,6 +1080,44 @@ paints into fixed labels that do not wrap and Linux uses a wrapping text widget.
 
 Also kept as `CHANGELOG.md` beside the program. There is no 1.02 — the version went from
 1.01 to 1.03 at the owner's request.
+
+### 1.11 — 8/9/26
+
+A bug-fix release from a line-by-line read of both builds. No new features, twenty-two fixes.
+The full detail is in `CHANGELOG.md`; the ones you might actually notice:
+
+**Two of them could lose your work, and both are gone.** A file that was not UTF-8 — an older
+Windows text file with a smart quote or a pound sign in it — used to open with those characters
+replaced by `?`-like marks, and *saving wrote the replacements back*, destroying the original
+bytes silently. Files are now decoded strictly and fall back to a byte-preserving code page, so
+what you save is what you opened. Separately, a fenced code block written as
+` ```js title="a.js" ` — the form several other tools use — lost its opening fence and rendered
+its contents as ordinary prose with the Markdown interpreted, so `*p` turned into emphasis.
+Anything after the language is now accepted and ignored, as it should be.
+
+**Searching the manual no longer freezes the window.** Typing a single letter used to lock the
+About dialog for seconds; it now answers in a small fraction of one. Above 400 hits only the
+current match is highlighted, and the label says so — the count and Next/Previous are unaffected.
+
+**The preview mode shown in the status bar is now the mode you are actually in.** Starting
+MiniPad with *editable* remembered used to report "read-only" over a pane that accepted typing.
+
+**On Linux, shortcuts no longer reach past an open dialog.** Ctrl+B, F5, Ctrl+A, Ctrl+W and
+Ctrl+Shift+B used to act on the document behind the About window while you were typing in it.
+
+**Typing plain prose into the editable preview no longer turns it into markup.** `1. hello` or
+`# hi` came back as a numbered list or a heading; they now stay as you typed them.
+
+**On Windows, About reads properly again** — the greys that distinguish headings from asides
+were being overwritten by the theme and are now drawn from the palette, so they work on the dark
+themes too. The zoom readout in Appearance no longer sits underneath the 100% button, and a
+finished game of tic-tac-toe no longer greys out the X and O.
+
+**Exported HTML.** The claim that both builds produced identical HTML was not true, and one real
+difference behind it is fixed: the Linux stylesheet was missing a rule, so an exported page had a
+stray margin above its first block. Both builds' exports of the same document are now identical
+apart from the source-line attributes the Windows preview needs. The wording in this manual has
+been corrected to say what is actually the case.
 
 ### 1.10 — 8/6/26
 
