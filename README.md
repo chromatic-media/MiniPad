@@ -100,6 +100,18 @@ Run it for that one process instead, which changes no system setting:
 powershell -ExecutionPolicy Bypass -File .\build.ps1
 ```
 
+Then check that it actually starts:
+
+```powershell
+.\verify-launch.ps1
+```
+
+This launches the built executable and fails if it exits, shows no window, or raises a .NET
+crash dialog. It takes about five seconds and exists because 1.11 shipped a crash that stopped
+MiniPad starting at all — past a review that read every line and ran harnesses over conversion,
+layout and round-tripping, none of which ever started the process. Run it before every release.
+The reasoning is in `DECISIONS.md`.
+
 **Linux** — nothing to build. `minipad.py` is the program.
 
 ---

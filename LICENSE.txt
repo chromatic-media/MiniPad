@@ -1,6 +1,6 @@
 MiniPad
 License and terms of use
-Version 1.09
+Version 1.11.1
 
 Copyright (c) 2026 Tim Broussard. All rights reserved.
 Built in conversation with Legion (Claude, Anthropic), an AI assistant, working

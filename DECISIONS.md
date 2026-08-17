@@ -33,6 +33,79 @@ who never use it.
 
 ---
 
+## Who frees a replaced `Font` — **by reference identity, never by value** (8/16/26)
+
+**Background:** 1.10 leaked a `Font` every time a control's font was replaced — and
+`StyleEditor` runs on every theme change and every zoom step, so it was one leaked font per
+document per press of `Ctrl+Plus`. 1.11 fixed that by freeing the old font after assigning
+the new one. **That fix introduced a crash that stopped MiniPad starting at all**, and 1.11.1
+is the correction.
+
+**Decided:** a replaced font is still freed — the leak fix stands — but *which* font gets
+freed is decided by **`ReferenceEquals` on what the control is holding afterwards**, never by
+assuming the assignment took. This lives in one helper, `ReplaceFont`, and both callers
+(`StyleEditor` and `ApplyEditorFont`) go through it.
+
+**Why, and this is the part worth remembering:**
+
+- **`Control.Font` compares by VALUE, not identity.** Assigning a `Font` that merely *equals*
+  the one already set is a silent no-op: WinForms keeps the original instance and discards
+  the one you handed it. Freeing "the old one" therefore frees the font the control is *still
+  using*, and every later repaint draws with released memory.
+- **The symptom appears nowhere near the mistake.** It surfaces as
+  `ArgumentException: Parameter is not valid` thrown from `Font.ToHfont()` deep inside
+  `Control.get_FontHandle()` — a stack with none of MiniPad's own code in it. Nothing points
+  at the line that actually did the damage.
+- **It needed only one tab, and fired during startup**, because applying the theme restyles
+  the editor a second time at an unchanged size. The value is identical, so the assignment
+  no-ops, so the live font is freed — before the window is ever shown.
+- **A value comparison in the guard would silently reintroduce it.** `Font` overloads neither
+  `==` nor `Equals` to reference semantics, so `if (box.Font != replacement)` reads correctly
+  and is always false. The `ReferenceEquals` call is load-bearing and must not be "tidied".
+
+**A second instance of the same class of bug, fixed at the same time:** the font chooser
+handed **one** `Font` object to every open editor. Restyling any one of them freed it for all
+of them. Each editor now gets its own instance — a control's font is owned by that control
+alone, not shared across documents.
+
+**The general lesson:** *"I assigned it, therefore it holds it"* is an assumption, not a
+fact. Before freeing anything on the grounds that something else replaced it, check that the
+replacement actually happened.
+
+**Not affected, and not an oversight:** the Linux build hands Tk plain `(family, size)`
+tuples. Tk owns and frees them; there is no manual disposal to get wrong.
+
+**What would change this:** moving the Windows build off WinForms. The behaviour being worked
+around is `Control.Font`'s value-equality semantics specifically.
+
+---
+
+## Whether a release must launch the program — **yes, and it now has a script** (8/16/26)
+
+**Decided:** `verify-launch.ps1` runs after `build.ps1` and before a release is committed. It
+starts the built executable, waits, and fails if the process exits, if no window title
+appears, or if a .NET crash dialog is on screen.
+
+**Why:** 1.11 was a bug-fix release produced by a line-by-line read of ~8,800 lines across
+both builds. It found and fixed twenty-two real defects, four verified failing-then-passing
+against the shipped binary. **It also shipped a crash that prevented the program starting,
+and nothing in that process could have caught it** — because every harness loaded the
+assembly and called into it, and not one of them started the process.
+
+> **A test that calls your code is not a test that your program runs.**
+
+The gap was invisible precisely *because* the testing was thorough: reflection harnesses,
+headless layout checks, HTML round-trips and cross-build parity all passed, which felt like
+coverage. They cover units. The one thing never exercised was the whole.
+
+**Cost:** about five seconds per release. It is the cheapest check in the project and the
+only one that would have caught the worst bug in it.
+
+**What would change this:** nothing. If anything, it should grow — a second pass that opens
+a file, changes the theme, and zooms would have caught this bug from three more directions.
+
+---
+
 ## Tooltips / a feature-discovery surface — **declined** (7/31/26)
 
 **Proposed:** tooltips, and possibly a dedicated hint box, to make MiniPad's features more
