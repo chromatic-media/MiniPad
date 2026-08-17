@@ -8,6 +8,41 @@ Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic)
 
 ---
 
+## 1.11.1 — 8/16/26
+
+An emergency fix for a crash 1.11 introduced. **1.11 could fail to start at all**, closing
+with *"Unhandled exception… Parameter is not valid."* before the window appeared. If you are
+on 1.11, replace it.
+
+The cause was one of 1.11's own fixes. 1.11 started freeing the font a control was replacing,
+to stop a leak of one font per document per zoom step. That was the right idea and the wrong
+implementation.
+
+### Fixed — crash on startup
+
+- **MiniPad no longer disposes a font it is still using.** WinForms compares fonts **by
+  value**, not by identity, so assigning a font that merely *equals* the current one is a
+  silent no-op: the control keeps its original instance and quietly discards the new one.
+  1.11 then freed the original, leaving every repaint drawing with released memory. The
+  failure surfaced as `ArgumentException: Parameter is not valid` from `Font.ToHfont()`,
+  far from the actual mistake. It needed only **one tab** and fired during startup, because
+  applying the theme restyles the editor a second time at an unchanged size.
+- **Changing the font with more than one tab open no longer breaks the other tabs.** The
+  font chooser handed a *single* font object to every editor. Restyling any one of them
+  freed it for all of them, so the remaining tabs threw the same exception on their next
+  repaint. Each editor now gets its own instance.
+
+Both paths now go through one helper that frees whichever font ends up unused, decided by
+reference identity rather than value. The leak 1.11 set out to fix stays fixed.
+
+### Note
+
+- The Linux build was never affected. It hands Tk plain `(family, size)` tuples, which Tk
+  owns and frees itself; there is no manual disposal to get wrong. Its version moves to
+  1.11.1 only to stay in step with the Windows build.
+
+---
+
 ## 1.11 — 8/9/26
 
 A bug-fix release, from an exhaustive read of both builds end to end. No new features.

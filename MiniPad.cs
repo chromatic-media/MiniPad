@@ -285,9 +285,30 @@ public class MainForm : Form
     {
         box.BackColor = Theme.EditorBack;
         box.ForeColor = Theme.EditorText;
+        ReplaceFont(box, new Font(baseFontFamily, Theme.ScaleFont(baseFontSize)));
+    }
+
+    // Puts `replacement` on the control and frees whichever Font ends up unused.
+    //
+    // 🔴 WINFORMS IGNORES A VALUE-EQUAL FONT ASSIGNMENT. Control.Font compares by
+    // VALUE (family, size, style, unit), not by reference, so assigning a Font that
+    // merely equals the current one leaves the control holding its ORIGINAL instance
+    // and silently drops the new one. Disposing the old instance then leaves the
+    // control painting with freed memory, which surfaces as
+    // ArgumentException("Parameter is not valid") from Font.ToHfont() - reported far
+    // from the actual mistake, and usually as a crash before the window ever appears.
+    //
+    // ⚠ THIS IS WHY THE TEST BELOW IS ReferenceEquals AND NOT ==. Font overloads
+    // neither == nor Equals to reference semantics, so a value comparison here would
+    // always say "unchanged" and reintroduce the bug. 1.11 shipped exactly that.
+    private static void ReplaceFont(Control box, Font replacement)
+    {
         Font previous = box.Font;
-        box.Font = new Font(baseFontFamily, Theme.ScaleFont(baseFontSize));
-        DisposeIfOwned(previous);
+        box.Font = replacement;
+        if (ReferenceEquals(box.Font, replacement))
+            DisposeIfOwned(previous);   // the swap took: the old one is ours to free
+        else
+            replacement.Dispose();      // the swap was ignored: free the spare instead
     }
 
     // The lowest number not already taken, so closing "Untitled 2" frees the name.
@@ -1275,14 +1296,25 @@ public class MainForm : Form
             baseFontFamily = dialog.Font.FontFamily.Name;
             baseFontSize = dialog.Font.Size;
         }
-        Font chosen = new Font(baseFontFamily, Theme.ScaleFont(baseFontSize));
-        foreach (Document document in documents)
-        {
-            Font previous = document.Editor.Font;
-            document.Editor.Font = chosen;
-            DisposeIfOwned(previous);
-        }
+        ApplyEditorFont();
         Theme.SetFont(baseFontFamily, baseFontSize);
+    }
+
+    // Gives every open editor the current base font at the current zoom.
+    //
+    // ⚠ EACH EDITOR GETS ITS OWN Font INSTANCE, and that is the whole point of this
+    // method. Handing one shared instance to every editor looks harmless and is not:
+    // StyleEditor disposes whatever font it finds on a control, so the first editor
+    // restyled would free a Font the others still reference. They then throw
+    // ArgumentException("Parameter is not valid") from Font.ToHfont() on the next
+    // repaint - far from the actual mistake, and only ever with two or more tabs open.
+    //
+    // Split out from ChooseFont so it can be tested without driving a modal FontDialog.
+    private void ApplyEditorFont()
+    {
+        float scaled = Theme.ScaleFont(baseFontSize);
+        foreach (Document document in documents)
+            ReplaceFont(document.Editor, new Font(baseFontFamily, scaled));
     }
 
     // A Font handed to a control is not disposed by that control, so replacing one
@@ -1294,7 +1326,14 @@ public class MainForm : Form
     private static void DisposeIfOwned(Font font)
     {
         if (font == null) return;
-        if (font == DefaultFont || font == SystemFonts.DefaultFont) return;
+        // A control that has never had a Font set returns its parent's ambient font,
+        // which is this shared static. Freeing it would break every control at once.
+        //
+        // ⚠ Do not add `|| font == SystemFonts.DefaultFont` here - it reads like a
+        // second safety net and is not one. That property builds a NEW Font on every
+        // access, so the reference comparison can never be true. It was in this guard
+        // until 1.11.1 doing precisely nothing.
+        if (font == DefaultFont) return;
         try { font.Dispose(); }
         catch { }
     }

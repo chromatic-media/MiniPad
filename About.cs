@@ -11,8 +11,8 @@ using Microsoft.Win32;
 public static class AppInfo
 {
     public const string Name = "MiniPad";
-    public const string Version = "1.11";
-    public const string ReleaseDate = "8/9/26";
+    public const string Version = "1.11.1";
+    public const string ReleaseDate = "8/16/26";
     public const string Designer = "Tim Broussard";
     public const string Author = "Legion";
 

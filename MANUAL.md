@@ -1,6 +1,6 @@
 # MiniPad Owner's Manual
 
-**Version 1.11** — 8/9/26
+**Version 1.11.1** — 8/16/26
 Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic).
 
 Open this file in MiniPad and press **F9** to read it as rendered Markdown, or press
@@ -48,7 +48,7 @@ It ships as two programs built from one design:
 
 | Build | File | Needs |
 |---|---|---|
-| Windows | `MiniPad.exe` | Nothing — one self-contained 308 KB executable |
+| Windows | `MiniPad.exe` | Nothing — one self-contained 309 KB executable |
 | Linux | `minipad.py` | Python 3 and `python3-tk` |
 
 Both read and write the same files, render the same Markdown, and export HTML that looks
@@ -1080,6 +1080,24 @@ paints into fixed labels that do not wrap and Linux uses a wrapping text widget.
 
 Also kept as `CHANGELOG.md` beside the program. There is no 1.02 — the version went from
 1.01 to 1.03 at the owner's request.
+
+### 1.11.1 — 8/16/26
+
+An emergency fix for a crash that 1.11 introduced. **1.11 could fail to start**, closing with
+*"Unhandled exception… Parameter is not valid."* before the window ever appeared. If you are on
+1.11, replace it.
+
+It was caused by one of 1.11's own fixes. To stop a font leak, 1.11 began freeing the font a
+control was replacing — but Windows compares fonts **by value**, not by identity, so handing a
+control a font that merely *equals* the one it already has changes nothing: the control keeps
+what it had and discards what you gave it. MiniPad then freed the font the editor was still
+using, and the next redraw drew with memory that had been given back. One tab was enough, and
+applying the theme at startup was enough to trigger it.
+
+A second, related fault is fixed too: changing the font with several tabs open handed *one*
+font object to every tab, so tidying up after any one of them broke the rest.
+
+The Linux build was never affected and changes only its version number.
 
 ### 1.11 — 8/9/26
 

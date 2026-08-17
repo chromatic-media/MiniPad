@@ -37,12 +37,12 @@ from tkinter import messagebox
 from tkinter import ttk
 
 APP_NAME = "MiniPad"
-VERSION = "1.11"
+VERSION = "1.11.1"
 
 # The editor and the preview share this top inset so their first lines sit at
 # the same height. Change it and both panes move together.
 PREVIEW_PAD_Y = 12
-RELEASE_DATE = "8/9/26"
+RELEASE_DATE = "8/16/26"
 DESIGNER = "Tim Broussard"
 AUTHOR = "Legion"
 
