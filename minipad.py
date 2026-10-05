@@ -37,12 +37,12 @@ from tkinter import messagebox
 from tkinter import ttk
 
 APP_NAME = "MiniPad"
-VERSION = "1.11.1"
+VERSION = "1.11.2"
 
 # The editor and the preview share this top inset so their first lines sit at
 # the same height. Change it and both panes move together.
 PREVIEW_PAD_Y = 12
-RELEASE_DATE = "8/16/26"
+RELEASE_DATE = "10/5/26"
 DESIGNER = "Tim Broussard"
 AUTHOR = "Legion"
 
@@ -4298,7 +4298,7 @@ FALEOFAZ_SITE = "https://faleofaz.org/"
 FALEOFAZ_SITE_SHORT = "faleofaz.org"
 FALEOFAZ_VENMO = "https://www.venmo.com/u/faleofaz"
 FALEOFAZ_PHONE = "801-317-5454"
-FALEOFAZ_EMAIL = "faleofaz@utfaleofaz.org"
+FALEOFAZ_EMAIL = "faleofaz@faleofaz.org"
 FALEOFAZ_INSTAGRAM = "@faleofaz_llc"
 FALEOFAZ_WHERE = "West Valley City, Utah - serving Salt Lake County"
 

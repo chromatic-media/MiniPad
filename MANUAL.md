@@ -1,6 +1,6 @@
 # MiniPad Owner's Manual
 
-**Version 1.11.1** — 8/16/26
+**Version 1.11.2** — 10/5/26
 Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic).
 
 Open this file in MiniPad and press **F9** to read it as rendered Markdown, or press
@@ -1080,6 +1080,10 @@ paints into fixed labels that do not wrap and Linux uses a wrapping text widget.
 
 Also kept as `CHANGELOG.md` beside the program. There is no 1.02 — the version went from
 1.01 to 1.03 at the owner's request.
+
+### 1.11.2 — 10/5/26
+
+- **FaleOfaz's email address is corrected** on the Donate tab: it is faleofaz@faleofaz.org (it said faleofaz@utfaleofaz.org). Both builds.
 
 ### 1.11.1 — 8/16/26
 

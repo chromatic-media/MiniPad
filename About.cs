@@ -11,8 +11,8 @@ using Microsoft.Win32;
 public static class AppInfo
 {
     public const string Name = "MiniPad";
-    public const string Version = "1.11.1";
-    public const string ReleaseDate = "8/16/26";
+    public const string Version = "1.11.2";
+    public const string ReleaseDate = "10/5/26";
     public const string Designer = "Tim Broussard";
     public const string Author = "Legion";
 
@@ -71,7 +71,7 @@ public static class FaleOfaz
     public const string SiteShort = "faleofaz.org";
     public const string Venmo = "https://www.venmo.com/u/faleofaz";
     public const string Phone = "801-317-5454";
-    public const string Email = "faleofaz@utfaleofaz.org";
+    public const string Email = "faleofaz@faleofaz.org";
     public const string Instagram = "@faleofaz_llc";
     public const string Where = "West Valley City, Utah - serving Salt Lake County";
 

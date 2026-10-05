@@ -8,6 +8,15 @@ Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic)
 
 ---
 
+## 1.11.2 — 10/5/26
+
+### Fixed
+
+- **FaleOfaz's email address on the Donate tab is corrected** to faleofaz@faleofaz.org (it said
+  faleofaz@utfaleofaz.org). Confirmed by Tim. Both builds (About.cs and minipad.py).
+
+---
+
 ## 1.11.1 — 8/16/26
 
 An emergency fix for a crash 1.11 introduced. **1.11 could fail to start at all**, closing
