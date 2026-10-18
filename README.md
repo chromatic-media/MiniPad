@@ -3,6 +3,8 @@
 # MiniPad
 ### A little space for your words.
 
+**[Visit the MiniPad website — downloads & help](https://tcdeveloper27.github.io/MiniPad/)**
+
 Write notes, keep lists, and turn plain text into neatly formatted pages as you type.
 
 **Free to use · Windows & Linux · Works offline**
