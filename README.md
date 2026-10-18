@@ -27,8 +27,6 @@ You don't need to understand the code or download everything on this page to use
 
 **Using Linux?** MiniPad also comes as [minipad.py](minipad.py). It needs Python 3 and Tk; the [Linux getting-started guide](MANUAL.md#linux-1) explains the requirements and how to run it.
 
-> **Can't reach the download?** This repository is currently private. You'll need to be signed into a GitHub account with access to it.
-
 ## Small app, useful touches
 
 | For everyday writing | When you want a little more |
