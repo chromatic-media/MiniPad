@@ -1,4 +1,67 @@
+<div align="center">
+
 # MiniPad
+### A little space for your words.
+
+Write notes, keep lists, and turn plain text into neatly formatted pages as you type.
+
+**Free to use · Windows & Linux · Works offline**
+
+### [↓ Get MiniPad for Windows](https://github.com/tcdeveloper27/MiniPad/raw/refs/heads/main/MiniPad.exe)
+
+One small file. No installer. No extra files to collect.
+
+[Read the owner's manual](MANUAL.md) · [See what's new](CHANGELOG.md)
+
+</div>
+
+---
+
+## Welcome! Start here
+
+You don't need to understand the code or download everything on this page to use MiniPad.
+
+1. **Get the Windows app** using the link above. The file you want is **MiniPad.exe**.
+2. **Open MiniPad.exe** once it has downloaded. MiniPad's manual describes it as a portable app: you can keep it wherever you like, with nothing to install.
+3. **Start writing.** Press **F1** whenever you want the built-in help.
+
+**Using Linux?** MiniPad also comes as [minipad.py](minipad.py). It needs Python 3 and Tk; the [Linux getting-started guide](MANUAL.md#linux-1) explains the requirements and how to run it.
+
+> **Can't reach the download?** This repository is currently private. You'll need to be signed into a GitHub account with access to it.
+
+## Small app, useful touches
+
+| For everyday writing | When you want a little more |
+|---|---|
+| Open and save ordinary text files | Preview formatted Markdown as you type |
+| Keep several documents open in tabs | Export your writing as HTML |
+| Choose a light or dark appearance | Explore colour palettes and adjust the zoom |
+| Work offline | Read the searchable manual inside the app |
+
+**New to Markdown?** It's a way to format text with simple marks, such as `#` before a heading. MiniPad shows a preview beside your writing so you can see the result. You can also use it for ordinary plain-text notes.
+
+## A few handy keys
+
+| Press | To |
+|---|---|
+| **F1** | Open the built-in manual |
+| **F9** | Show or hide the preview |
+| **Ctrl+T** | Open a new tab |
+
+## Help and more information
+
+- **[Owner's manual](MANUAL.md)** — features, requirements, and troubleshooting.
+- **[Version history](CHANGELOG.md)** — changes and fixes.
+- **[Licence](LICENSE.txt)** — free for personal and commercial use; restrictions apply to modifying and reusing the source.
+
+Designed by **Tim Broussard**. Built in conversation with **Legion** (Claude, Anthropic), working under his direction.
+
+---
+
+<details>
+<summary><strong>Technical details, building from source, and full project notes</strong></summary>
+
+## Project overview
 
 A small plain-text editor that also renders Markdown, live, as you type.
 
@@ -149,3 +212,5 @@ Built in conversation with **Legion** (Claude, Anthropic), working under his dir
 Neither line is decoration. The design, the decisions and the direction are Tim's; the code,
 the testing and the manual were written in dialogue with an AI assistant. Saying only one of
 those would misrepresent how it was made.
+
+</details>
