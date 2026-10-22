@@ -3,13 +3,13 @@
 # MiniPad
 ### A little space for your words.
 
-**[Visit the MiniPad website — downloads & help](https://tcdeveloper27.github.io/MiniPad/)**
+**[Visit the MiniPad website — downloads & help](https://chromaticmedia.us/MiniPad/)**
 
 Write notes, keep lists, and turn plain text into neatly formatted pages as you type.
 
 **Free to use · Windows & Linux · Works offline**
 
-### [↓ Get MiniPad for Windows](https://github.com/tcdeveloper27/MiniPad/raw/refs/heads/main/MiniPad.exe)
+### [↓ Get MiniPad for Windows](https://github.com/chromatic-media/MiniPad/raw/refs/heads/main/MiniPad.exe)
 
 One small file. No installer. No extra files to collect.
 
