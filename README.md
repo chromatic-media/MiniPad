@@ -66,10 +66,12 @@ Designed by **Tim Broussard**. Built in conversation with **Legion** (Claude, An
 A small plain-text editor that also renders Markdown, live, as you type.
 
 It opens and saves ordinary `.txt` and `.md` files, and it never changes anything in your
-file that you did not change yourself. No network access, no telemetry, no installer, and
-no third-party libraries — it calls only what the operating system already provides.
+file that you did not change yourself. No telemetry, no installer, and no third-party
+libraries — it calls only what the operating system already provides. Its only network use
+is a once-a-day check of this repository for a newer version (Windows build, can be
+switched off under **File**), which sends nothing about you or your files.
 
-**Version 1.11.2**
+**Version 1.12**
 
 ---
 

@@ -19,7 +19,8 @@ try {
         "Theme.cs",
         "Appearance.cs",
         "Document.cs",
-        "TabStrip.cs"
+        "TabStrip.cs",
+        "Updates.cs"
     )
 
     & $csc /nologo /target:winexe /optimize+ /out:MiniPad.exe /win32icon:MiniPad.ico `

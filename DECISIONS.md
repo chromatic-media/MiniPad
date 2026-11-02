@@ -33,6 +33,33 @@ who never use it.
 
 ---
 
+## Checking GitHub for updates — **adopted, on by default, at Tim's request** (11/2/26)
+
+Until 1.12 MiniPad made no network connections at all, and the README and SECURITY.md said
+so. Tim asked for an update check in the app and a periodic automatic one. Given the choices,
+he picked **on by default with an off switch**, **at start plus once a day**, and **tell me
+and open the download page** over self-replacing.
+
+Measured against the test above, the person who never wants this pays very little. The
+notice is a bar inside the window rather than a dialog, so it never takes the keyboard.
+**Skip this version** silences a version for good. **File > Check for Updates
+Automatically** turns the whole thing off. A failed check says nothing.
+
+**Where "the newest version" comes from.** The repository's `main` branch is the release:
+MiniPad.exe is committed there and the download page links it there. So the check reads the
+`Version` constant from `About.cs` on `main`, with no separate version file to forget. That
+puts one rule on releases: **commit the new MiniPad.exe in the same push as the version
+bump**, or the bar will point at an exe that is still the old one.
+
+**Self-replacing was not built.** Downloading and swapping a running exe adds failure modes
+(a locked file, a half-written download, antivirus suspicion of a program that rewrites
+itself) for the sake of one drag-and-drop.
+
+*What would change this:* GitHub Releases becoming the download channel (then read the
+latest release instead), or a request to update in place.
+
+---
+
 ## Who frees a replaced `Font` — **by reference identity, never by value** (8/16/26)
 
 **Background:** 1.10 leaked a `Font` every time a control's font was replaced — and

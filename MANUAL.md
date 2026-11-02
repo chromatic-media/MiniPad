@@ -1,6 +1,6 @@
 # MiniPad Owner's Manual
 
-**Version 1.11.2** — 10/5/26
+**Version 1.12** — 11/2/26
 Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic).
 
 Open this file in MiniPad and press **F9** to read it as rendered Markdown, or press
@@ -24,6 +24,7 @@ Open this file in MiniPad and press **F9** to read it as rendered Markdown, or p
 11. Appearance: themes, colours and zoom
 12. Bunnies
 12a. Help: the manual inside the program
+12b. Updates: checking GitHub for a newer version
 13. Keyboard reference
 14. Menu reference
 15. Files and locations
@@ -52,7 +53,8 @@ It ships as two programs built from one design:
 | Linux | `minipad.py` | Python 3 and `python3-tk` |
 
 Both read and write the same files, render the same Markdown, and export HTML that looks
-the same from either build. Neither one uses the network, and neither installs anything.
+the same from either build. Neither one installs anything. The only network use is the
+Windows build's update check (section 12b), which you can switch off.
 
 The Windows executable carries everything inside it: the program, its notepad icon at
 eight sizes, this manual and the license. Nothing else has to sit beside it.
@@ -61,7 +63,8 @@ eight sizes, this manual and the license. Nothing else has to sit beside it.
 
 - Your file's text encoding and line endings are preserved exactly as found.
 - Nothing is written to disk unless you save it. Settings are the one exception.
-- No third-party libraries, no package downloads, no telemetry.
+- No third-party libraries, no package downloads, no telemetry. The update check sends
+  nothing about you or your files.
 
 ---
 
@@ -303,6 +306,10 @@ one-word edit into a diff that touches every line of the file.
 
 Standard editing throughout: `Ctrl+X`, `Ctrl+C`, `Ctrl+V`, `Ctrl+A`, and `Ctrl+Z` to
 undo. Tab inserts a real tab character.
+
+The clipboard keys work in whichever pane you are in. In the **Live Preview**, `Ctrl+C`
+copies the rendered text and `Ctrl+A` selects the whole page. In the editable mode `Ctrl+X`
+and `Ctrl+V` cut and paste there too. The Edit menu follows the same rule.
 
 **F5** inserts the current date and time at the caret.
 
@@ -639,6 +646,37 @@ shown in orange and the rest in yellow. Search wraps around at either end.
 Because the manual is embedded, the program needs no companion files. If a build is ever made
 without it, Help falls back to reading `MANUAL.md` from the program's own folder.
 
+## 12b. Updates: checking GitHub for a newer version
+
+*Windows build.* MiniPad's home is its GitHub repository,
+`https://github.com/chromatic-media/MiniPad`. Each new MiniPad.exe is published there.
+
+**File > Check for Updates...** asks GitHub right away and tells you the answer: a newer
+version, *You have the newest MiniPad*, or why it could not check (for example, no internet).
+
+**MiniPad also checks by itself, at most once a day.** It checks about 15 seconds after it
+starts if a day has passed since the last check. While it stays open it looks once an hour
+whether the day is up. **File > Check for Updates Automatically** switches this on and off,
+and the choice is remembered. If there is no internet, the check fails quietly and tries again
+later.
+
+**When a newer version is out**, a bar appears across the top of the window. It is never a
+pop-up, so it cannot take the keyboard while you type:
+
+| Button | What it does |
+|---|---|
+| **Download** | Your browser downloads the new MiniPad.exe. Close MiniPad, then put the new file in place of the old one. Your settings stay as they are |
+| **What's new** | Opens the changelog on GitHub |
+| **Skip this version** | Hides the bar and does not mention that version again. A later version will still be announced, and **Check for Updates...** always reports it |
+| **Not now** | Hides the bar until the next check |
+
+**MiniPad never replaces itself.** You decide when to swap the file.
+
+**What the check sends.** One HTTPS request for one file: `About.cs` on the repository's main
+branch, which MiniPad reads only for its version number. Nothing about you, your computer or
+your files is sent, and no account is involved. **About > Build & Libraries** shows whether
+automatic checks are on and when the last one ran.
+
 ---
 
 ## 13. Keyboard reference
@@ -693,7 +731,7 @@ All the tab shortcuts above work identically on both builds.
 
 | Menu | Items |
 |---|---|
-| **File** | New Tab, Open, Save, Save As, Save All, Close Tab, Close Other Tabs, Export as HTML, Exit |
+| **File** | New Tab, Open, Save, Save As, Save All, Close Tab, Close Other Tabs, Export as HTML, Check for Updates, Check for Updates Automatically (Windows), Exit |
 | **Edit** | Undo, Redo on Linux, Cut, Copy, Paste, Select All, Time/Date |
 | **Markdown** | Live Preview, Preview Mode, then the formatting helpers from section 8 |
 | **Format** | Word Wrap, Font, Appearance, Zoom In, Zoom Out, Reset Zoom |
@@ -840,6 +878,7 @@ These are the honest differences.
 | Undo | Single step | Full undo stack, with redo |
 | Drag and drop a file | Yes | No — needs the non-standard `tkdnd` extension |
 | Window icon | From the executable | Embedded PNG, needs Tk 8.6 |
+| Update check | File > Check for Updates, and daily by itself | Not yet implemented |
 
 **Why editable preview differs.** Windows has an HTML engine that can be made editable, so
 the rendered page itself accepts typing. Linux has no equivalent available from the standard
@@ -1044,7 +1083,7 @@ nothing about it is required. If you never open the About dialog you will never 
 deliberate: MiniPad's whole design rule is that a feature must cost nothing to the people who
 do not use it, and an appeal that pops up unbidden would break that rule badly.
 
-**MiniPad still makes no network connections of its own.** Both buttons hand the address to
+**The Donate tab makes no network connections of its own.** Both buttons hand the address to
 your desktop's browser — the same thing that already happens when you click a link in the
 preview pane. Nothing is fetched, sent, or reported, and the tab works identically offline
 apart from the browser having nothing to show.
@@ -1080,6 +1119,48 @@ paints into fixed labels that do not wrap and Linux uses a wrapping text widget.
 
 Also kept as `CHANGELOG.md` beside the program. There is no 1.02 — the version went from
 1.01 to 1.03 at the owner's request.
+
+### 1.12 — 11/2/26
+
+#### Fixed — copying from the Live Preview
+
+- **Ctrl+C now copies from the Live Preview pane.** It did nothing there before. The preview
+  blocks Internet Explorer's own shortcuts so that Ctrl+N cannot open an IE window, F5
+  cannot reload the pane blank and Ctrl+P cannot print. But that block also swallowed every
+  other key combination, Ctrl+C included, before MiniPad's menu ever saw it. The clipboard
+  keys (Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+A, and Ctrl+Insert, Shift+Delete, Shift+Insert) now go
+  to the preview itself, which handles them as a web page would. In the read-only modes it
+  will copy but will not cut or paste. The rest of IE's shortcuts stay blocked.
+- **Edit > Cut, Copy, Paste and Select All act on the pane you are in.** They used to go to
+  the source pane every time, even when the preview had focus.
+- **The window's own shortcuts work from the preview.** Ctrl+S, Ctrl+N, Ctrl+O, Ctrl+W,
+  Save As, Save All, F1, F9, zoom and the tab keys were swallowed too while the preview had
+  focus. The Markdown formatting keys (Ctrl+B, Ctrl+I, headings and so on) are deliberately
+  left out, because from the preview they would edit text you are not looking at.
+
+#### New — checking GitHub for updates
+
+- **File > Check for Updates...** asks GitHub whether a newer MiniPad is out and tells you
+  either way.
+- **MiniPad also checks by itself, at most once a day.** It checks 15 seconds after it
+  starts if a day has passed since the last check, and while it stays open it looks once an
+  hour whether a day has passed. **File > Check for Updates Automatically** turns this off.
+- **A newer version shows as a bar across the top of the window**, not a pop-up, so it never
+  takes the keyboard while you type. It offers **Download** (the new MiniPad.exe, from the
+  repository), **What's new** (this changelog), **Skip this version**, and **Not now**.
+  MiniPad never replaces itself.
+- **What it sends:** one HTTPS request for `About.cs` on the repository's main branch,
+  which it reads only for the version number. No file names, text, settings or identifier
+  are sent. An automatic check that fails stays silent and tries again later.
+- This is the first time MiniPad uses the network at all. README, SECURITY.md and the
+  manual now say exactly what the check sends. Build & Libraries in the About dialog shows
+  whether automatic checks are on and when the last check ran.
+- Releases built before 1.12 have no update check, so they will not hear about this one.
+
+#### Note
+
+- The Linux build has no update check yet. Its version moves to 1.12 only to stay in step.
+
 
 ### 1.11.2 — 10/5/26
 

@@ -11,8 +11,8 @@ using Microsoft.Win32;
 public static class AppInfo
 {
     public const string Name = "MiniPad";
-    public const string Version = "1.11.2";
-    public const string ReleaseDate = "10/5/26";
+    public const string Version = "1.12";
+    public const string ReleaseDate = "11/2/26";
     public const string Designer = "Tim Broussard";
     public const string Author = "Legion";
 
@@ -718,7 +718,7 @@ public class AboutBox : Form
         report.AppendLine("  Language         C# 5");
         report.AppendLine("  Sources          MiniPad.cs, Markdown.cs, HtmlToMarkdown.cs,");
         report.AppendLine("                   About.cs, Help.cs, Games.cs, Theme.cs,");
-        report.AppendLine("                   Appearance.cs, Document.cs, TabStrip.cs");
+        report.AppendLine("                   Appearance.cs, Document.cs, TabStrip.cs, Updates.cs");
         report.AppendLine();
 
         report.AppendLine("SETTINGS");
@@ -746,12 +746,24 @@ public class AboutBox : Form
         report.AppendLine("                             file/font dialogs, clipboard, drag-drop");
         report.AppendLine("  System.Drawing.dll         GDI+ fonts, colours, layout metrics");
         report.AppendLine("  System.dll                 Text.RegularExpressions (Markdown parser),");
-        report.AppendLine("                             Diagnostics.Process (opens preview links)");
+        report.AppendLine("                             Diagnostics.Process (opens preview links),");
+        report.AppendLine("                             Net.HttpWebRequest (the update check)");
         report.AppendLine("  mscorlib.dll               core types, file and encoding I/O");
         report.AppendLine();
         report.AppendLine("  WebBrowser control hosts MSHTML (Trident, the Internet Explorer");
         report.AppendLine("  engine built into Windows) to render the Markdown preview. No");
-        report.AppendLine("  network access and no third-party packages are used.");
+        report.AppendLine("  third-party packages are used.");
+        report.AppendLine();
+        report.AppendLine("NETWORK");
+        report.AppendLine("  The update check is the only network use: one HTTPS request for");
+        report.AppendLine("  " + Updates.VersionSource);
+        report.AppendLine("  to read its version number. Nothing about you or your files is sent.");
+        report.AppendLine("  Automatic checks   " + (Theme.UpdateCheck
+                                                    ? "on, at most once a day (File > Check for Updates Automatically)"
+                                                    : "off (File > Check for Updates Automatically)"));
+        report.AppendLine("  Last check         " + (Theme.LastUpdateCheck == DateTime.MinValue
+                                                    ? "never"
+                                                    : Theme.LastUpdateCheck.ToLocalTime().ToString("g")));
         report.AppendLine();
         report.AppendLine("  Reached indirectly through WinForms: user32.dll (windowing and");
         report.AppendLine("  input), gdi32.dll (drawing), comdlg32.dll (open/save/font dialogs),");

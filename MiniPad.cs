@@ -27,7 +27,7 @@ public class MainForm : Form
     private TabStrip tabs;
     private Panel editorHost;
     private SplitContainer split;
-    private WebBrowser preview;
+    private PreviewBrowser preview;
     private Timer previewTimer;
     private Timer syncTimer;
     private StatusStrip statusBar;
@@ -36,6 +36,15 @@ public class MainForm : Form
     private ToolStripMenuItem wordWrapItem;
     private ToolStripMenuItem previewItem;
     private ToolStripMenuItem portableItem;
+    private ToolStripMenuItem autoUpdateItem;
+
+    // The update notice: a bar across the top of the window rather than a pop-up,
+    // so a check that lands mid-sentence never takes the keyboard away.
+    private Panel updateBar;
+    private Label updateLabel;
+    private string updateVersion;       // the version the bar is announcing
+    private bool updateCheckRunning;
+    private Timer updateTimer;
     private Label previewCaption;
     private Label editorCaption;
 
@@ -139,7 +148,8 @@ public class MainForm : Form
         editorCaption.Padding = new Padding(8, 0, 0, 0);
         editorCaption.Text = "Markdown source";
 
-        preview = new WebBrowser();
+        preview = new PreviewBrowser();
+        preview.KeyFromPreview = OnPreviewKey;
         preview.Dock = DockStyle.Fill;
         preview.AllowWebBrowserDrop = false;
         preview.ScriptErrorsSuppressed = true;
@@ -193,7 +203,9 @@ public class MainForm : Form
         // window, the status bar at the bottom, and the split in what is left.
         // The strip sits above the preview rather than inside the editor pane so
         // the tabs get the full window width instead of half of it.
+        BuildUpdateBar();
         Controls.Add(split);
+        Controls.Add(updateBar);   // between the tab strip and the panes
         Controls.Add(statusBar);
         Controls.Add(tabs);
         MainMenuStrip = BuildMenu();
@@ -208,6 +220,8 @@ public class MainForm : Form
             previewTimer.Dispose();
             syncTimer.Stop();
             syncTimer.Dispose();
+            updateTimer.Stop();
+            updateTimer.Dispose();
         };
         AppInfo.ApplyIcon(this);
 
@@ -242,6 +256,19 @@ public class MainForm : Form
         {
             split.SplitterDistance = split.Width / 2;
             if (previewItem.Checked) RenderPreview();
+            updateTimer.Start();
+        };
+
+        // The first automatic check waits until the window has settled, then the
+        // timer looks once an hour whether a day has passed since the last one.
+        // Hourly rather than every 24 hours, so a laptop that slept through the
+        // due time catches up within the hour instead of a day late.
+        updateTimer = new Timer();
+        updateTimer.Interval = 15000;
+        updateTimer.Tick += delegate
+        {
+            updateTimer.Interval = 60 * 60 * 1000;
+            if (Updates.CheckIsDue) CheckForUpdates(false);
         };
 
         bool openedAny = false;
@@ -426,16 +453,21 @@ public class MainForm : Form
         file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add(Item("&Export as HTML...", Keys.None, delegate { ExportHtml(); }));
         file.DropDownItems.Add(new ToolStripSeparator());
+        file.DropDownItems.Add(Item("Check for &Updates...", Keys.None, delegate { CheckForUpdates(true); }));
+        autoUpdateItem = Item("Check for Updates Automatically", Keys.None, delegate { ToggleAutoUpdate(); });
+        autoUpdateItem.Checked = Theme.UpdateCheck;
+        file.DropDownItems.Add(autoUpdateItem);
+        file.DropDownItems.Add(new ToolStripSeparator());
         file.DropDownItems.Add(Item("E&xit", Keys.None, delegate { Close(); }));
 
         ToolStripMenuItem edit = new ToolStripMenuItem("&Edit");
         edit.DropDownItems.Add(Item("&Undo", Keys.Control | Keys.Z, delegate { editor.Undo(); }));
         edit.DropDownItems.Add(new ToolStripSeparator());
-        edit.DropDownItems.Add(Item("Cu&t", Keys.Control | Keys.X, delegate { editor.Cut(); }));
-        edit.DropDownItems.Add(Item("&Copy", Keys.Control | Keys.C, delegate { editor.Copy(); }));
-        edit.DropDownItems.Add(Item("&Paste", Keys.Control | Keys.V, delegate { editor.Paste(); }));
+        edit.DropDownItems.Add(Item("Cu&t", Keys.Control | Keys.X, delegate { CutSelection(); }));
+        edit.DropDownItems.Add(Item("&Copy", Keys.Control | Keys.C, delegate { CopySelection(); }));
+        edit.DropDownItems.Add(Item("&Paste", Keys.Control | Keys.V, delegate { PasteText(); }));
         edit.DropDownItems.Add(new ToolStripSeparator());
-        edit.DropDownItems.Add(Item("Select &All", Keys.Control | Keys.A, delegate { editor.SelectAll(); }));
+        edit.DropDownItems.Add(Item("Select &All", Keys.Control | Keys.A, delegate { SelectAllText(); }));
         edit.DropDownItems.Add(Item("Time/&Date", Keys.F5,
             delegate { editor.SelectedText = DateTime.Now.ToString("g"); }));
 
@@ -1015,6 +1047,189 @@ public class MainForm : Form
         syncTimer.Start();
     }
 
+    // ---- checking GitHub for a newer version ----
+
+    private void BuildUpdateBar()
+    {
+        updateBar = new Panel();
+        updateBar.Dock = DockStyle.Top;
+        updateBar.Height = 36;
+        updateBar.Visible = false;
+
+        FlowLayoutPanel row = new FlowLayoutPanel();
+        row.Dock = DockStyle.Fill;
+        row.WrapContents = false;
+        row.Padding = new Padding(6, 4, 6, 0);
+
+        updateLabel = new Label();
+        updateLabel.AutoSize = true;
+        updateLabel.Margin = new Padding(2, 7, 14, 0);
+        row.Controls.Add(updateLabel);
+
+        // No & mnemonics: Alt+D or Alt+S here would shadow the menus.
+        row.Controls.Add(BarButton("Download", delegate
+        {
+            OpenUpdateLink(Updates.Download);
+            updateLabel.Text = "Your browser is downloading MiniPad " + updateVersion
+                             + ". Close MiniPad, then put the new MiniPad.exe in place of this one: "
+                             + Path.GetDirectoryName(Application.ExecutablePath);
+        }));
+        row.Controls.Add(BarButton("What's new", delegate { OpenUpdateLink(Updates.Changelog); }));
+        row.Controls.Add(BarButton("Skip this version", delegate
+        {
+            Theme.SetSkippedVersion(updateVersion);
+            updateBar.Visible = false;
+        }));
+        row.Controls.Add(BarButton("Not now", delegate { updateBar.Visible = false; }));
+
+        updateBar.Controls.Add(row);
+    }
+
+    private static Button BarButton(string text, EventHandler click)
+    {
+        Button button = new Button();
+        button.Text = text;
+        button.AutoSize = true;
+        button.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+        button.Padding = new Padding(6, 0, 6, 0);
+        button.Margin = new Padding(0, 0, 6, 0);
+        button.TabStop = false;     // the keyboard stays with the document
+        button.Click += click;
+        return button;
+    }
+
+    private void OpenUpdateLink(string url)
+    {
+        try { Process.Start(url); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "Could not open:\r\n" + url + "\r\n\r\n" + ex.Message,
+                AppInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private void ToggleAutoUpdate()
+    {
+        Theme.SetUpdateCheck(!Theme.UpdateCheck);
+        autoUpdateItem.Checked = Theme.UpdateCheck;
+    }
+
+    // `asked` is true when the user chose File > Check for Updates. Then every
+    // outcome is reported, and a skipped version is offered again. An automatic
+    // check stays silent unless it finds something new.
+    private void CheckForUpdates(bool asked)
+    {
+        if (updateCheckRunning) return;
+        updateCheckRunning = true;
+        if (asked) UseWaitCursor = true;
+
+        Updates.CheckAsync(this, delegate(string latest, string error)
+        {
+            updateCheckRunning = false;
+            if (asked) UseWaitCursor = false;
+
+            if (latest == null)
+            {
+                if (asked)
+                    MessageBox.Show(this, "MiniPad could not check for updates.\r\n\r\n" + error,
+                        AppInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            Theme.SetLastUpdateCheck(DateTime.UtcNow);
+
+            if (Updates.IsNewer(latest, AppInfo.Version))
+            {
+                if (asked || latest != Theme.SkippedVersion)
+                {
+                    updateVersion = latest;
+                    updateLabel.Text = "MiniPad " + latest + " is available. You have " + AppInfo.Version + ".";
+                    updateBar.Visible = true;
+                }
+            }
+            else if (asked)
+            {
+                MessageBox.Show(this, "You have the newest MiniPad (" + AppInfo.Version + ").",
+                    AppInfo.Name, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        });
+    }
+
+    // ---- the clipboard, in whichever pane has focus ----
+
+    // Cut, Copy, Paste and Select All act on the pane you are in. They used to go
+    // to the source pane unconditionally, so from the preview they copied an
+    // invisible selection on the other side, or nothing at all.
+    private bool PreviewHasFocus
+    {
+        get { return previewItem.Checked && preview.ContainsFocus; }
+    }
+
+    private void CopySelection()
+    {
+        if (PreviewHasFocus) PreviewCommand("Copy");
+        else editor.Copy();
+    }
+
+    // The read-only modes take no edits, so Cut and Paste there do nothing rather
+    // than reaching across to change the source.
+    private void CutSelection()
+    {
+        if (!PreviewHasFocus) editor.Cut();
+        else if (previewMode == PreviewMode.Editable && PreviewCommand("Cut")) OnPreviewEdited(null, EventArgs.Empty);
+    }
+
+    private void PasteText()
+    {
+        if (!PreviewHasFocus) editor.Paste();
+        else if (previewMode == PreviewMode.Editable && PreviewCommand("Paste")) OnPreviewEdited(null, EventArgs.Empty);
+    }
+
+    private void SelectAllText()
+    {
+        if (PreviewHasFocus) PreviewCommand("SelectAll");
+        else editor.SelectAll();
+    }
+
+    private bool PreviewCommand(string command)
+    {
+        try
+        {
+            if (preview.Document == null) return false;
+            preview.Document.ExecCommand(command, false, null);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // The window's own shortcuts. These work from the preview exactly as from the
+    // source; the Markdown formatting keys are deliberately not here, since from
+    // the preview they would edit text the user is not looking at.
+    private static readonly Keys[] WindowShortcuts =
+    {
+        Keys.Control | Keys.N, Keys.Control | Keys.O, Keys.Control | Keys.S,
+        Keys.Control | Keys.Shift | Keys.S, Keys.Control | Keys.Alt | Keys.S, Keys.Control | Keys.W,
+        Keys.F1, Keys.F9, Keys.Control | Keys.Shift | Keys.B,
+        Keys.Control | Keys.Oemplus, Keys.Control | Keys.OemMinus, Keys.Control | Keys.D0,
+        Keys.Control | Keys.Tab, Keys.Control | Keys.Shift | Keys.Tab,
+        Keys.Control | Keys.PageDown, Keys.Control | Keys.PageUp,
+    };
+
+    // A key pressed while the preview has focus, seen before the browser gets it
+    // (the clipboard keys never reach here: PreviewBrowser gives those to the
+    // browser itself). Returning false hands the key on to the browser as before.
+    private bool OnPreviewKey(ref Message message, Keys keyData)
+    {
+        bool tabJump = (keyData & Keys.Modifiers) == (Keys.Control | Keys.Alt)
+                       && (keyData & Keys.KeyCode) >= Keys.D1 && (keyData & Keys.KeyCode) <= Keys.D9;
+        if (tabJump || Array.IndexOf(WindowShortcuts, keyData) >= 0)
+            return ProcessCmdKey(ref message, keyData);
+        return false;
+    }
+
     // Click-to-jump: find the nearest element carrying a source line number.
     private void OnPreviewClick(object sender, HtmlElementEventArgs e)
     {
@@ -1256,6 +1471,7 @@ public class MainForm : Form
         editorCaption.BackColor = Theme.WindowBack;
         editorCaption.ForeColor = Theme.UiDim;
         UpdateZoomLabel();
+        updateLabel.ForeColor = Theme.UiAccent;
 
         RenderPreview();   // the preview stylesheet changes with the theme
     }
@@ -1563,5 +1779,52 @@ public class MainForm : Form
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new MainForm(args));
+    }
+}
+
+// The preview pane. WebBrowserShortcutsEnabled is off so that Internet Explorer's
+// own shortcuts cannot fire inside it - Ctrl+N would open an IE window, F5 would
+// reload the pane blank, Ctrl+P would print. But that switch swallows every key
+// combination WinForms' Shortcut enum names, Ctrl+C among them, and it does so
+// before the window's menu ever sees the key: copying from the preview did
+// nothing, and neither did Ctrl+S while the preview had focus.
+//
+// So the clipboard keys are let through to the browser, which copies, cuts,
+// pastes and selects exactly as a web page would (and, in the read-only modes,
+// refuses to cut or paste, as a web page would). The window's own shortcuts go
+// to the window. Everything else stays blocked, as before.
+public delegate bool PreviewKeyHandler(ref Message message, Keys keyData);
+
+public class PreviewBrowser : WebBrowser
+{
+    private const int WM_KEYDOWN = 0x0100;
+    private const int WM_SYSKEYDOWN = 0x0104;
+
+    public PreviewKeyHandler KeyFromPreview;
+
+    public override bool PreProcessMessage(ref Message message)
+    {
+        if (message.Msg == WM_KEYDOWN || message.Msg == WM_SYSKEYDOWN)
+        {
+            Keys keyData = (Keys)(int)(long)message.WParam | ModifierKeys;
+            if (IsClipboardKey(keyData))
+            {
+                // The switch is only read while the browser decides what to do
+                // with this one key, so it is open for exactly that long.
+                WebBrowserShortcutsEnabled = true;
+                try { return base.PreProcessMessage(ref message); }
+                finally { WebBrowserShortcutsEnabled = false; }
+            }
+            if (KeyFromPreview != null && KeyFromPreview(ref message, keyData)) return true;
+        }
+        return base.PreProcessMessage(ref message);
+    }
+
+    private static bool IsClipboardKey(Keys keyData)
+    {
+        return keyData == (Keys.Control | Keys.C) || keyData == (Keys.Control | Keys.Insert)
+            || keyData == (Keys.Control | Keys.X) || keyData == (Keys.Shift | Keys.Delete)
+            || keyData == (Keys.Control | Keys.V) || keyData == (Keys.Shift | Keys.Insert)
+            || keyData == (Keys.Control | Keys.A);
     }
 }
