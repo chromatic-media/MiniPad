@@ -28,7 +28,7 @@ few days rather than a few hours. If a fix is warranted, you will be credited in
 
 | Version | Supported |
 |---|---|
-| 1.09 (current) | Yes |
+| 1.12 (current) | Yes |
 | Anything earlier | No — please update first |
 
 Only the latest version is maintained. There are no long-term support branches.
@@ -38,11 +38,21 @@ Only the latest version is maintained. There are no long-term support branches.
 Being honest about this is more useful than a generic policy, because it tells you where
 to look.
 
-MiniPad **makes no network connections of any kind**. It does not check for updates, send
-telemetry, or fetch remote content. It uses no third-party libraries — only the .NET
-Framework and the Windows HTML rendering control on Windows, and the Python standard
-library with Tk on Linux. So there is no dependency chain to compromise and no traffic to
-intercept.
+MiniPad makes **one kind of network connection: the update check** (Windows build, since
+1.12). It is an HTTPS GET for
+`https://raw.githubusercontent.com/chromatic-media/MiniPad/main/About.cs`, sent at most once
+a day automatically (switch it off with **File > Check for Updates Automatically**) or when
+you choose **File > Check for Updates...**. The request carries a `MiniPad/<version>`
+User-Agent and nothing else: no file names, text, settings or identifier. The reply is read
+only for a version number, capped at 512 KB, and never run, opened or shown. The links the
+update bar opens are fixed in the program and do not come from the reply, so a forged reply
+can at worst announce a version that does not exist. MiniPad never downloads or replaces
+itself. The browser does the download when you click **Download**.
+
+Apart from that, MiniPad sends no telemetry and fetches no remote content. It uses no
+third-party libraries — only the .NET Framework and the Windows HTML rendering control on
+Windows, and the Python standard library with Tk on Linux. So there is no dependency chain
+to compromise.
 
 What it *does* do is **parse files you open and render them**. That is the surface:
 

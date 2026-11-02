@@ -84,6 +84,13 @@ public static class Theme
     public static Rectangle WindowBounds { get; private set; }  // Empty = centre at the default size
     public static bool WindowMaximised { get; private set; }
 
+    // Checking GitHub for a newer version (Updates.cs). On unless switched off;
+    // the last successful check is remembered so a day is a day across restarts,
+    // and a version the user chose to skip is not announced again.
+    public static bool UpdateCheck { get; private set; }
+    public static DateTime LastUpdateCheck { get; private set; }  // UTC; MinValue = never
+    public static string SkippedVersion { get; private set; }     // "" = none
+
     // ---- the palettes ----
 
     private static readonly List<Palette> All = new List<Palette>
@@ -408,6 +415,9 @@ public static class Theme
         WordWrap = true;
         WindowBounds = Rectangle.Empty;
         WindowMaximised = false;
+        UpdateCheck = true;
+        LastUpdateCheck = DateTime.MinValue;
+        SkippedVersion = "";
 
         try
         {
@@ -463,6 +473,21 @@ public static class Theme
                     if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out size)
                         && size >= 5 && size <= 72)
                         FontSize = size;
+                }
+                else if (key == "updatecheck")
+                {
+                    UpdateCheck = !value.Equals("off", StringComparison.OrdinalIgnoreCase);
+                }
+                else if (key == "lastupdatecheck")
+                {
+                    DateTime when;
+                    if (DateTime.TryParseExact(value, "yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture,
+                            DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out when))
+                        LastUpdateCheck = when;
+                }
+                else if (key == "skipversion")
+                {
+                    SkippedVersion = value.Equals("none", StringComparison.OrdinalIgnoreCase) ? "" : value;
                 }
                 else if (key == "previewmode")
                 {
@@ -564,7 +589,11 @@ public static class Theme
           + "window=" + (WindowBounds.IsEmpty ? "none"
                 : string.Format(CultureInfo.InvariantCulture, "{0},{1},{2},{3}",
                     WindowBounds.X, WindowBounds.Y, WindowBounds.Width, WindowBounds.Height)) + "\r\n"
-          + "maximised=" + (WindowMaximised ? "on" : "off") + "\r\n");
+          + "maximised=" + (WindowMaximised ? "on" : "off") + "\r\n"
+          + "updatecheck=" + (UpdateCheck ? "on" : "off") + "\r\n"
+          + "lastupdatecheck=" + (LastUpdateCheck == DateTime.MinValue ? "never"
+                : LastUpdateCheck.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)) + "\r\n"
+          + "skipversion=" + (string.IsNullOrEmpty(SkippedVersion) ? "none" : SkippedVersion) + "\r\n");
     }
 
     public static void SetFont(string family, float size)
@@ -578,6 +607,25 @@ public static class Theme
     {
         if (mode < 0 || mode > 2 || PreviewMode == mode) return;
         PreviewMode = mode;
+        Save();
+    }
+
+    public static void SetUpdateCheck(bool on)
+    {
+        if (UpdateCheck == on) return;
+        UpdateCheck = on;
+        Save();
+    }
+
+    public static void SetLastUpdateCheck(DateTime utc)
+    {
+        LastUpdateCheck = utc;
+        Save();
+    }
+
+    public static void SetSkippedVersion(string version)
+    {
+        SkippedVersion = version ?? "";
         Save();
     }
 

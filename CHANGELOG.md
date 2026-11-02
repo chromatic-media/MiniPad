@@ -8,6 +8,49 @@ Designed by Tim Broussard. Built in conversation with Legion (Claude, Anthropic)
 
 ---
 
+## 1.12 — 11/2/26
+
+### Fixed — copying from the Live Preview
+
+- **Ctrl+C now copies from the Live Preview pane.** It did nothing there before. The preview
+  blocks Internet Explorer's own shortcuts so that Ctrl+N cannot open an IE window, F5
+  cannot reload the pane blank and Ctrl+P cannot print. But that block also swallowed every
+  other key combination, Ctrl+C included, before MiniPad's menu ever saw it. The clipboard
+  keys (Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+A, and Ctrl+Insert, Shift+Delete, Shift+Insert) now go
+  to the preview itself, which handles them as a web page would. In the read-only modes it
+  will copy but will not cut or paste. The rest of IE's shortcuts stay blocked.
+- **Edit > Cut, Copy, Paste and Select All act on the pane you are in.** They used to go to
+  the source pane every time, even when the preview had focus.
+- **The window's own shortcuts work from the preview.** Ctrl+S, Ctrl+N, Ctrl+O, Ctrl+W,
+  Save As, Save All, F1, F9, zoom and the tab keys were swallowed too while the preview had
+  focus. The Markdown formatting keys (Ctrl+B, Ctrl+I, headings and so on) are deliberately
+  left out, because from the preview they would edit text you are not looking at.
+
+### New — checking GitHub for updates
+
+- **File > Check for Updates...** asks GitHub whether a newer MiniPad is out and tells you
+  either way.
+- **MiniPad also checks by itself, at most once a day.** It checks 15 seconds after it
+  starts if a day has passed since the last check, and while it stays open it looks once an
+  hour whether a day has passed. **File > Check for Updates Automatically** turns this off.
+- **A newer version shows as a bar across the top of the window**, not a pop-up, so it never
+  takes the keyboard while you type. It offers **Download** (the new MiniPad.exe, from the
+  repository), **What's new** (this changelog), **Skip this version**, and **Not now**.
+  MiniPad never replaces itself.
+- **What it sends:** one HTTPS request for `About.cs` on the repository's main branch,
+  which it reads only for the version number. No file names, text, settings or identifier
+  are sent. An automatic check that fails stays silent and tries again later.
+- This is the first time MiniPad uses the network at all. README, SECURITY.md and the
+  manual now say exactly what the check sends. Build & Libraries in the About dialog shows
+  whether automatic checks are on and when the last check ran.
+- Releases built before 1.12 have no update check, so they will not hear about this one.
+
+### Note
+
+- The Linux build has no update check yet. Its version moves to 1.12 only to stay in step.
+
+---
+
 ## 1.11.2 — 10/5/26
 
 ### Fixed
